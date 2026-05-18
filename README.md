@@ -32,7 +32,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "C:\path\to\COdex-RTL-rt-ai\
 ### 3. מתקין מקוון (one-liner)
 
 ```powershell
-irm https://raw.githubusercontent.com/<your-user>/codex-rtl-rt-ai/main/install-online.ps1 | iex
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.ps1 | iex
 ```
 
 > דרישה יחידה: **[Node.js](https://nodejs.org/) (LTS)** מותקן.

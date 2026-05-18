@@ -9,7 +9,7 @@ patch.ps1 -Install. No admin required.
 
 [CmdletBinding()]
 param(
-    [string] $Repo = "roi-rt-ai/codex-rtl-rt-ai",
+    [string] $Repo = "rt25ai/codex-rtl-rt-ai",
     [string] $Branch = "main"
 )
 
