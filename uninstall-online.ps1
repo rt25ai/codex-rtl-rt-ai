@@ -48,7 +48,14 @@ try {
     }
 
     Write-Step "Running uninstaller"
-    & $patcher -Uninstall
+    # Spawn a child PowerShell with explicit -ExecutionPolicy Bypass so we
+    # work even when the user's session policy is Restricted.
+    $psExe = (Get-Process -Id $PID).Path
+    if (-not $psExe) { $psExe = "powershell.exe" }
+    & $psExe -NoProfile -ExecutionPolicy Bypass -File $patcher -Uninstall
+    if ($LASTEXITCODE -ne 0) {
+        throw "Uninstaller exited with code $LASTEXITCODE."
+    }
 } finally {
     if (Test-Path -LiteralPath $tempRoot) {
         Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

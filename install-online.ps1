@@ -54,7 +54,17 @@ try {
     }
 
     Write-Step "Running installer"
-    & $patcher -Install
+    # Spawn a child PowerShell with explicit -ExecutionPolicy Bypass so the
+    # one-line installer works even when the user's session policy is
+    # Restricted (the default on many Windows installs). This sidesteps the
+    # "cannot be loaded because running scripts is disabled" error without
+    # asking users to change any system-wide policy.
+    $psExe = (Get-Process -Id $PID).Path
+    if (-not $psExe) { $psExe = "powershell.exe" }
+    & $psExe -NoProfile -ExecutionPolicy Bypass -File $patcher -Install
+    if ($LASTEXITCODE -ne 0) {
+        throw "Installer exited with code $LASTEXITCODE."
+    }
 } finally {
     if (Test-Path -LiteralPath $tempRoot) {
         Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
