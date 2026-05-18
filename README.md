@@ -1,19 +1,19 @@
 # Codex RTL Patch for Windows - by RT-AI
 
 > תמיכה אוטומטית בעברית/ערבית (RTL) ל-OpenAI Codex Desktop על Windows.
-> Adds automatic Hebrew/Arabic (RTL) support to OpenAI Codex Desktop on Windows.
+> Adds automatic Hebrew (RTL) support to OpenAI Codex Desktop on Windows.
 
 מזהה טקסט עברי/ערבי בזמן אמת ב-composer וב-streaming של התשובות, מיישר אותו
 לימין באופן טבעי, ושומר על בלוקי קוד ב-LTR. **לא דורש הרשאות admin** ולא נוגע
 בהתקנה המקורית של Codex.
 
-By **RT-AI** — [rt-ai.co.il](https://rt-ai.co.il)
+By **RT-AI** - [rt-ai.co.il](https://rt-ai.co.il)
 
 ![platform](https://img.shields.io/badge/platform-windows-blue) ![admin](https://img.shields.io/badge/admin-not%20required-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ---
 
-## התקנה — שורה אחת ב-PowerShell
+## התקנה - שורה אחת ב-PowerShell
 
 פתחו **PowerShell** (לא חייב admin), הדביקו את השורה הזו, ולחצו Enter:
 
@@ -146,7 +146,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
 
 ---
 
-## ⚠️ Disclaimer — הסרת אחריות
+## ⚠️ Disclaimer - הסרת אחריות
 
 **אנא קראו לפני ההתקנה.**
 
