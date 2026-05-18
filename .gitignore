@@ -1,0 +1,24 @@
+# Local working files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (if anyone runs npm here for testing)
+node_modules/
+
+# OS / build artifacts
+*.zip
+dist/
+build/
+out/
+
+# Local Claude / editor settings
+.claude/
+.codex/
