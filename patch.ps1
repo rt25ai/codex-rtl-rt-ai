@@ -78,14 +78,45 @@ function Assert-DirectorySafeToRemove {
 }
 
 function Remove-DirectorySafe {
-    param([string] $Path)
+    param(
+        [string] $Path,
+        [int] $MaxAttempts = 6,
+        [int] $DelayMs = 750
+    )
 
     if (-not (Test-Path -LiteralPath $Path)) {
         return
     }
 
     Assert-DirectorySafeToRemove $Path
-    Remove-Item -LiteralPath $Path -Recurse -Force
+
+    $lastError = $null
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+            return
+        } catch {
+            $lastError = $_
+            if ($attempt -lt $MaxAttempts) {
+                Write-Info "Delete blocked (attempt $attempt/$MaxAttempts) - waiting for file handles to release..."
+                Start-Sleep -Milliseconds $DelayMs
+            }
+        }
+    }
+
+    # Final fallback: rename out of the way so the install can proceed, even if some files
+    # are still locked by the OS. Windows will clean up the renamed folder on next reboot.
+    try {
+        $parent = Split-Path -Parent $Path
+        $leaf = Split-Path -Leaf $Path
+        $stamp = (Get-Date).ToString("yyyyMMddHHmmssfff")
+        $stale = Join-Path $parent (".$leaf.stale-$stamp")
+        Rename-Item -LiteralPath $Path -NewName (Split-Path -Leaf $stale) -ErrorAction Stop
+        Write-Warn "Could not fully delete $Path; renamed to $stale and continuing."
+        return
+    } catch {
+        throw "Failed to remove $Path after $MaxAttempts attempts and could not rename it. Original error: $($lastError.Exception.Message)"
+    }
 }
 
 function Get-ToolPath {
@@ -139,6 +170,19 @@ function Get-CodexPackageVersion {
     return [version] "0.0.0.0"
 }
 
+function Test-IsPatchedCopy {
+    param([string] $AppDir)
+
+    $markers = @(
+        Join-Path $AppDir "resources\rt-ai-codex-rtl-patch.json",
+        Join-Path $AppDir "resources\codex-rtl-patch.json"
+    )
+    foreach ($m in $markers) {
+        if (Test-Path -LiteralPath $m) { return $true }
+    }
+    return $false
+}
+
 function Find-CodexAppDir {
     param([string] $ExplicitSourceAppDir)
 
@@ -150,19 +194,26 @@ function Find-CodexAppDir {
         return $explicit
     }
 
-    $candidates = New-Object System.Collections.Generic.List[string]
-
-    $codexCommand = Get-Command codex -ErrorAction SilentlyContinue
-    if ($codexCommand -and $codexCommand.Source) {
-        $dir = Split-Path -Parent $codexCommand.Source
-        while ($dir -and $dir -ne [System.IO.Path]::GetPathRoot($dir)) {
-            if (Test-CodexAppDir $dir) {
-                $candidates.Add((Resolve-FullPath $dir))
-                break
+    # Primary: use Get-AppxPackage which works without admin and finds the MSIX install reliably.
+    try {
+        $package = Get-AppxPackage -Name "OpenAI.Codex" -ErrorAction Stop |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+        if ($package -and $package.InstallLocation) {
+            $appDir = Join-Path $package.InstallLocation "app"
+            if (Test-CodexAppDir $appDir) {
+                return (Resolve-FullPath $appDir)
             }
-            $dir = Split-Path -Parent $dir
+            if (Test-CodexAppDir $package.InstallLocation) {
+                return (Resolve-FullPath $package.InstallLocation)
+            }
         }
+    } catch {
+        Write-Warn "Get-AppxPackage lookup failed: $($_.Exception.Message)"
     }
+
+    # Fallback: enumerate WindowsApps (requires admin to list, usually fails for normal users).
+    $candidates = New-Object System.Collections.Generic.List[string]
 
     $windowsAppsDir = Join-Path $env:ProgramFiles "WindowsApps"
     if (Test-Path -LiteralPath $windowsAppsDir) {
@@ -175,14 +226,20 @@ function Find-CodexAppDir {
                     }
                 }
         } catch {
-            Write-Warn "Could not enumerate WindowsApps: $($_.Exception.Message)"
+            # Silently fall through to LocalAppData; this typically fails without admin.
         }
     }
 
+    # Last resort: LocalAppData\Programs, but skip ANY directory we recognize as a patched copy.
     $localPrograms = Join-Path $env:LOCALAPPDATA "Programs"
     if (Test-Path -LiteralPath $localPrograms) {
+        $excludedNames = @($Script:LegacyPatchedDirs + "Codex-RT-AI")
         Get-ChildItem -LiteralPath $localPrograms -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match "Codex|OpenAI" -and $_.Name -ne "Codex-RT-AI" } |
+            Where-Object {
+                $_.Name -match "Codex|OpenAI" -and
+                $excludedNames -notcontains $_.Name -and
+                -not (Test-IsPatchedCopy $_.FullName)
+            } |
             ForEach-Object {
                 if (Test-CodexAppDir $_.FullName) {
                     $candidates.Add((Resolve-FullPath $_.FullName))
@@ -198,7 +255,7 @@ function Find-CodexAppDir {
         Select-Object -First 1
 
     if (-not $best) {
-        throw "Could not find a Codex Desktop installation. Pass -SourceAppDir explicitly."
+        throw "Could not find a Codex Desktop installation. Install Codex from Microsoft Store first, or pass -SourceAppDir explicitly."
     }
 
     return $best
@@ -217,9 +274,15 @@ function Stop-PatchedCodex {
             $_.ExecutablePath -and $_.ExecutablePath.StartsWith($full, [System.StringComparison]::OrdinalIgnoreCase)
         }
 
+    $stopped = 0
     foreach ($process in $processes) {
-        Write-Info "Stopping patched Codex process $($process.ProcessId)"
         Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+        $stopped += 1
+    }
+
+    if ($stopped -gt 0) {
+        Write-Info "Stopped $stopped patched Codex process(es); waiting for handles to release..."
+        Start-Sleep -Milliseconds 1500
     }
 }
 

@@ -43,6 +43,9 @@ Assert-True ($patcher.Contains('$Script:ShortcutName = "Codex.lnk"')) "shortcut 
 Assert-True ($patcher.Contains("Get-StartMenuShortcutPath")) "patcher should also create a Start Menu shortcut"
 Assert-True ($patcher.Contains("Remove-LegacyShortcuts")) "patcher should remove legacy shortcuts on install"
 Assert-True ($patcher.Contains("Remove-LegacyPatchedDirs")) "patcher should clean up legacy patched dirs"
+Assert-True ($patcher.Contains('Get-AppxPackage -Name "OpenAI.Codex"')) "patcher should use Get-AppxPackage as the primary source lookup (works without admin)"
+Assert-True ($patcher.Contains("Test-IsPatchedCopy")) "patcher should detect and skip our own patched copies as source candidates"
+Assert-True ($patcher.Contains("MaxAttempts")) "Remove-DirectorySafe should retry on file-lock failures"
 
 Assert-True ($payload.Contains("RT-AI CODEX RTL PATCH START")) "payload marker is missing"
 Assert-True ($payload.Contains("__RT_AI_CODEX_RTL_PATCH__")) "payload should be idempotent and RT-AI branded"
