@@ -9,121 +9,128 @@
 
 By **RT-AI** — [rt-ai.co.il](https://rt-ai.co.il)
 
-![status](https://img.shields.io/badge/platform-windows-blue) ![status](https://img.shields.io/badge/admin-not%20required-green) ![status](https://img.shields.io/badge/license-MIT-lightgrey)
+![platform](https://img.shields.io/badge/platform-windows-blue) ![admin](https://img.shields.io/badge/admin-not%20required-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ---
 
-## התקנה (3 אפשרויות)
+## התקנה — שורה אחת ב-PowerShell
 
-### 1. הכי קל — דאבל-קליק
-
-הורידו את הריפו (ZIP / `git clone`), ואז דאבל-קליק על **`install.bat`**.
-
-### 2. שורת פקודה אחת ב-PowerShell
-
-פתחו PowerShell (מכל תיקייה — לא חייב להיות בתיקיית הפרויקט) והדביקו:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "C:\path\to\COdex-RTL-rt-ai\patch.ps1" -Install
-```
-
-החליפו `C:\path\to\COdex-RTL-rt-ai` בנתיב שבו שמרתם את הפרויקט.
-
-### 3. מתקין מקוון (one-liner)
+פתחו **PowerShell** (לא חייב admin), הדביקו את השורה הזו, ולחצו Enter:
 
 ```powershell
 irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.ps1 | iex
 ```
 
-> דרישה יחידה: **[Node.js](https://nodejs.org/) (LTS)** מותקן.
-> ה-MS Store version של Codex Desktop צריך להיות מותקן.
+זהו. בסוף יופיע שורטקאט בשם **"Codex"** על שולחן העבודה ובתפריט Start, ותפעיל
+את הגרסה החדשה עם תמיכה ב-RTL.
 
-## איך זה נראה אחרי התקנה
+> **דרישה יחידה:** [Node.js (LTS)](https://nodejs.org/) מותקן ו-Codex Desktop
+> מותקן מ-Microsoft Store. *לא נדרשים admin / takeown / שינויי הרשאות.*
 
-- מופיע **קיצור דרך "Codex"** על שולחן העבודה ובתפריט Start.
-- לחיצה עליו פותחת Codex עם תמיכה מלאה ב-RTL (העברית מיושרת לימין, אנגלית
-  ב-LTR, קוד נשאר LTR).
-- ההתקנה המקורית של Codex (תחת `WindowsApps`) נשארת ללא שינוי.
+## Before / After
 
-## הסרה
+<table dir="ltr">
+<tr><th>בלי הפאצ' (Before)</th><th>עם הפאצ' (After)</th></tr>
+<tr>
+<td>
 
-דאבל-קליק על **`uninstall.bat`** (או `patch.ps1 -Uninstall`).
-מוחק את ההעתק המתוקן ואת השורטקאטים. המקור לא מושפע.
+```
++----------------------------------+
+| Codex                            |
++----------------------------------+
+| Response from Codex:             |
+|                                  |
+| ?Python -ב for loop כתוב לי   |
+| .for i in range(10):             |
+|     print(i)                     |
+|                                  |
+| [Composer]                       |
+| | אנגלית and קוד עם שאלה כתוב   |
++----------------------------------+
+       ^ העברית "נשפכת" שמאלה,
+         הסימני שאלה והפיסוק בצד הלא נכון,
+         הצמדה לימין לא קיימת.
+```
 
-## בדיקת סטטוס
+</td>
+<td>
 
-דאבל-קליק על **`status.bat`** — מציג מקור Codex, נתיב הפאצ', מצב fuse של Electron.
+```
++----------------------------------+
+| Codex                            |
++----------------------------------+
+|             :Codex מ Response    |
+|                                  |
+|   ?כתוב לי for loop ב-Python    |
+|             for i in range(10):  |
+|                     print(i)     |
+|                                  |
+|                       [Composer] |
+| כתוב שאלה עם קוד and אנגלית |   |
++----------------------------------+
+       ^ העברית מיושרת לימין,
+         פיסוק במקום הנכון,
+         בלוקי קוד נשארים LTR.
+```
+
+</td>
+</tr>
+</table>
+
+**מה הפאצ' מזהה אוטומטית:**
+
+- ✅ עברית/ערבית בתוך ה-composer → ה-input מיישר לימין בזמן הקלדה.
+- ✅ עברית/ערבית בתשובות streaming מהמודל → כל פסקה מיושרת בנפרד לפי השפה.
+- ✅ טקסט מעורב (עברית + אנגלית באותה שורה) → first-strong detection.
+- ✅ בלוקי קוד (` ``` `, `<pre>`, Monaco, CodeMirror) → **תמיד LTR**.
+- ✅ Inline code (`` `כך` ``) → LTR גם בתוך פסקה ב-RTL.
+- ✅ סימני פיסוק "שמטיילים" — מיוצבים עם `unicode-bidi: plaintext`.
+
+## הסרה / סטטוס
+
+אחרי שמתקינים, בתיקייה שנפתחה זמנית — או דרך הריפו המקומי:
+
+```powershell
+# הסרה
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/uninstall-online.ps1 | iex
+
+# או דאבל-קליק על uninstall.bat בתיקייה המקומית
+```
+
+המקור של Codex (תחת `WindowsApps`) **לא מושפע** וממשיך לעבוד רגיל.
+
+## עדכוני Codex
+
+כש-Codex Desktop מתעדכן ב-Microsoft Store, ההעתק המתוקן שלך **לא מתעדכן
+אוטומטית**. כדי לקבל את הגרסה החדשה עם RTL, פשוט הריצו שוב את אותה שורה
+מההתקנה — הסקריפט יזהה את הגרסה החדשה, יעתיק אותה, ויפאצ'.
 
 ---
-
-## מה הפאצ' עושה
-
-- מזהה עברית/ערבית בזמן אמת ב-composer ובתשובות streaming.
-- מיישר אוטומטית `.ProseMirror` (תיבת הקלט) לימין כשמקלידים RTL.
-- מיישר הודעות בזמן streaming מהמודל.
-- שומר `pre`, `code`, Monaco/CodeMirror, שורות עם syntax highlighting — LTR.
-- מתקין העתק מתוקן ב-`%LOCALAPPDATA%\Programs\Codex-RT-AI`.
-- **לא** נוגע ב-Codex המקורי תחת `WindowsApps` (היא מוגנת על-ידי MSIX).
-
-## דרישות
-
-- **Windows** עם Codex Desktop מותקן (גרסת MSIX מ-Microsoft Store).
-- **[Node.js](https://nodejs.org/)** — נדרש בשביל `npx.cmd` (`@electron/asar`,
-  `@electron/fuses`).
-- אין צורך ב-admin.
 
 ## איך זה עובד מבפנים
 
 1. מוצא את Codex תחת `C:\Program Files\WindowsApps\OpenAI.Codex_...\app`.
 2. מעתיק אותו ל-`%LOCALAPPDATA%\Programs\Codex-RT-AI`.
-3. מחלץ את `resources\app.asar` בעזרת `@electron/asar`.
+3. מחלץ את `resources\app.asar` עם `@electron/asar`.
 4. מוסיף את `codex-rtl-payload.js` כ-prefix ל-bundles של ה-webview:
-   - `webview\assets\index-*.js`
-   - `webview\assets\app-main-*.js`
-   - `webview\assets\composer-*.js`
+   - `webview\assets\index-*.js`, `app-main-*.js`, `composer-*.js`
 5. אורז מחדש את `app.asar`.
-6. מכבה את ה-fuse של ASAR integrity (`EnableEmbeddedAsarIntegrityValidation=off`)
-   על ה-`Codex.exe` המועתק — נדרש כי שינינו את ה-archive.
+6. מכבה את `EnableEmbeddedAsarIntegrityValidation` ב-`Codex.exe` (נדרש אחרי
+   שינוי ב-asar) באמצעות `@electron/fuses`.
 7. כותב marker (`resources\rt-ai-codex-rtl-patch.json`).
 8. יוצר קיצורי דרך `Codex.lnk` ב-Desktop וב-Start Menu.
 
-## עדכוני Codex
-
-כש-Codex Desktop מתעדכן (דרך Microsoft Store), המקור תחת `WindowsApps` יוחלף
-אבל **הפאצ' שלך לא יושפע** — ההעתק שלך תחת LocalAppData ימשיך לעבוד עם הגרסה
-הקודמת. כדי לקבל את הגרסה החדשה עם RTL, פשוט הריצו שוב את `install.bat` והוא
-יעתיק ויפאצ' את הגרסה החדשה.
-
-## למה העתק ולא in-place?
-
-`WindowsApps` היא תיקייה מוגנת ע"י MSIX/TrustedInstaller:
-- שינויים בה דורשים admin + `takeown`/`icacls`.
-- שינויים שוברים את חתימת ה-MSIX.
-- עדכונים אוטומטיים מהחנות ידרסו את הפאצ'.
-
-לכן הפאצ' עובד על העתק נפרד תחת פרופיל המשתמש — בטוח, ללא admin, וניתן לחזרה.
-
-## הערות
-
-- ההעתק עשוי לשתף user data עם Codex המקורי (שם האפליקציה ב-Electron זהה).
-- אם Codex משנה את מבנה ה-bundles הפנימי, הסקריפט יעצור עם שגיאה ברורה במקום
-  לתקן בשקט את הקובץ הלא נכון.
-
-## ולידציה
-
-הרצת בדיקות סטטיות מקומיות:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
-```
+הכל ב-`%LOCALAPPDATA%` — תיקייה user-writable. אין שינוי ב-`WindowsApps`,
+ב-registry, או ב-services.
 
 ## מבנה הפרויקט
 
 ```text
 .
-|-- install.bat              # מתקין בדאבל-קליק
+|-- install.bat              # מתקין בדאבל-קליק (מקומי)
+|-- install-online.ps1       # מתקין one-liner מ-GitHub
 |-- uninstall.bat            # מסיר בדאבל-קליק
-|-- status.bat               # בדיקת סטטוס בדאבל-קליק
+|-- status.bat               # בדיקת סטטוס
 |-- patch.ps1                # הסקריפט הראשי
 |-- codex-rtl-payload.js     # ה-JS שמוזרק ל-webview
 |-- tests/verify-static.ps1  # בדיקות סטטיות
@@ -131,12 +138,44 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
 |-- LICENSE
 ```
 
-## רישיון
+## ולידציה
 
-MIT — ראו [LICENSE](LICENSE).
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
+```
 
-נבנה על ידי **RT-AI** לטובת קהילת המשתמשים בעברית.
-Issues / PRs welcome.
+---
+
+## ⚠️ Disclaimer — הסרת אחריות
+
+**אנא קראו לפני ההתקנה.**
+
+- **שימוש אישי בלבד.** הכלי הזה מסופק כ-AS-IS, בלי שום אחריות מפורשת או
+  משתמעת, וניתן לשימוש על אחריותו הבלעדית של המשתמש.
+- **לא קשור ל-OpenAI.** הפאצ' אינו מוצר רשמי של OpenAI ואינו מאושר על-ידם.
+  Codex® ו-OpenAI® הם סימנים מסחריים של בעליהם.
+- **מתקן העתק, לא את המקור.** הסקריפט יוצר העתק של Codex תחת תיקיית המשתמש
+  ומפעיל אותו. ההתקנה המקורית מ-Microsoft Store נשארת ללא שינוי. עם זאת,
+  ההעתק כבר אינו חתום ב-MSIX integrity, מה שאומר ש-Windows לא מתייחס אליו
+  כאל אפליקציה חתומה.
+- **מבטל ASAR integrity fuse.** הפאצ' מכבה fuse של Electron בהעתק כדי שיוכל
+  לטעון את ה-asar המעודכן. השלכה: אם רוצים לחזור לחתימה מקורית — מסירים את
+  ההעתק (`uninstall.bat`) ומשתמשים שוב במקור.
+- **MSIX מעדכן את המקור, לא את ההעתק.** עדכון של Codex דרך Microsoft Store
+  לא יעדכן את ההעתק המתוקן. צריך להריץ שוב את ההתקנה כדי לאמץ את הגרסה
+  החדשה.
+- **שימוש משפיע על your user data של Codex.** ההעתק חולק תיקיית user data
+  עם המקור (שם האפליקציה ב-Electron זהה). זה אומר שכניסה, היסטוריית שיחות
+  ופרטי משתמש אמורים להישמר.
+- **ללא ערבות לתפקוד עתידי.** OpenAI יכולים בכל עת לשנות את מבנה ה-bundles
+  הפנימי של Codex Desktop. אם זה קורה — הפאצ' יעצור עם שגיאה ברורה (במקום
+  לפגוע בקובץ הלא נכון בשקט), והוא ידרוש עדכון.
+- **רישיון:** MIT. ראו [LICENSE](LICENSE). אין שום warranty (כולל לעניין
+  merchantability ו-fitness for a particular purpose), והמחברים אינם
+  אחראים לכל נזק ישיר, עקיף, מקרי, או תוצאתי שייגרם משימוש בכלי.
+
+הוגן? לפני שמשתמשים, ודאו שאתם מבינים מה הסקריפט עושה. הקוד פתוח —
+[קראו אותו](patch.ps1).
 
 ---
 
@@ -146,10 +185,16 @@ Drop-in RTL (right-to-left) patch for OpenAI Codex Desktop on Windows.
 Detects Hebrew/Arabic text in the composer and streamed responses, aligns RTL
 content naturally, keeps code blocks LTR.
 
-- No admin required.
-- Original Codex (under WindowsApps) is left untouched.
-- A patched copy lives at `%LOCALAPPDATA%\Programs\Codex-RT-AI`.
-- Desktop and Start Menu shortcuts named "Codex" point to the patched copy.
+**Install (one-liner, no admin):**
 
-Install: double-click `install.bat` (requires [Node.js](https://nodejs.org/)).
-Uninstall: double-click `uninstall.bat`.
+```powershell
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.ps1 | iex
+```
+
+**Notes:**
+
+- No admin required.
+- Original Codex (under WindowsApps) is left untouched — only a copy at
+  `%LOCALAPPDATA%\Programs\Codex-RT-AI` is patched.
+- Desktop and Start Menu shortcuts named "Codex" point to the patched copy.
+- Personal use, AS-IS, MIT license. Not affiliated with OpenAI.
