@@ -13,7 +13,7 @@ By **RT-AI** - [rt-ai.co.il](https://rt-ai.co.il)
 
 ---
 
-## התקנה — שורה אחת
+## התקנה - שורה אחת
 
 ### Windows
 
