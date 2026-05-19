@@ -1,4 +1,4 @@
-# Codex RTL Patch for Windows - by RT-AI
+# Codex RTL Patch for Hebrew on Codex Desktop
 
 > תמיכה אוטומטית בעברית/ערבית (RTL) ל-OpenAI Codex Desktop על Windows.
 > Adds automatic Hebrew (RTL) support to OpenAI Codex Desktop on Windows.
