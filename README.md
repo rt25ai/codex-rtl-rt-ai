@@ -1,15 +1,15 @@
 # Codex RTL Patch for Hebrew on Codex Desktop
-A drop-in RTL patch for OpenAI Codex Desktop that improves Hebrew and Arabic writing, mixed RTL/LTR text, punctuation alignment, and keeps code blocks left-to-right.
 
-תיקון RTL ל-OpenAI Codex Desktop שמשפר כתיבה בעברית ובערבית, טקסט מעורב עברית/אנגלית, יישור סימני פיסוק ושמירה על בלוקי קוד משמאל לימין.
+A drop-in RTL patch for **OpenAI Codex Desktop** that improves Hebrew and
+Arabic writing, mixed RTL/LTR text, punctuation alignment, and keeps code
+blocks left-to-right.
 
-מזהה טקסט עברי/ערבי בזמן אמת ב-composer וב-streaming של התשובות, מיישר אותו
-לימין באופן טבעי, ושומר על בלוקי קוד ב-LTR. **לא דורש הרשאות admin** ולא נוגע
-בהתקנה המקורית של Codex.
+תיקון RTL ל-OpenAI Codex Desktop שמשפר כתיבה בעברית ובערבית, טקסט מעורב
+עברית/אנגלית, יישור סימני פיסוק ושמירה על בלוקי קוד משמאל לימין.
 
 By **RT-AI** - [rt-ai.co.il](https://rt-ai.co.il)
 
-![platform](https://img.shields.io/badge/platform-windows-blue) ![admin](https://img.shields.io/badge/admin-not%20required-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![Platform Windows](https://img.shields.io/badge/Windows-supported-blue) ![macOS experimental](https://img.shields.io/badge/macOS-experimental-lightgrey) ![Admin](https://img.shields.io/badge/admin-not_required-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green)
 
 ---
 ## Who is this for?
@@ -33,7 +33,13 @@ irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online
 > **דרישות:** [Node.js (LTS)](https://nodejs.org/) + Codex Desktop מ-Microsoft Store.
 > לא נדרשים admin / takeown / שינויי הרשאות.
 
-### macOS (community / untested)
+### macOS - experimental
+
+macOS support is included but has not yet been personally tested by the
+author. The script follows the standard pattern for patching Electron apps
+on macOS (ad-hoc `codesign`, ASAR fuse) and reuses the same payload as the
+Windows version. Confirmations, issue reports and pull requests are very
+welcome.
 
 פתחו **Terminal** והדביקו:
 
@@ -46,13 +52,7 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install
 
 > **דרישות:** [Node.js](https://nodejs.org/) (`brew install node`) +
 > Xcode CLI tools (`xcode-select --install`) + Codex Desktop מותקן ב-`/Applications`.
->
-> ⚠️ **גרסת ה-Mac לא נבדקה על-ידי המחבר** (אין לי Mac בהישג יד). היא בנויה
-> על אותו ה-payload של גרסת Windows ועל הדפוס המקובל לפאצ'ים של Electron
-> ב-macOS (ad-hoc codesign, ASAR fuse). אם נתקלתם בבעיה — פתחו
-> [issue](https://github.com/rt25ai/codex-rtl-rt-ai/issues) או PR.
-### macOS - experimental
-macOS support is included but has not yet been personally tested by the author. Contributions, confirmations and pull requests are welcome.
+> אם נתקלתם בבעיה — פתחו [issue](https://github.com/rt25ai/codex-rtl-rt-ai/issues) או PR.
 
 ## Before / After
 
@@ -141,6 +141,23 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/uninsta
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
 ```
 
+## Known limitations
+
+- **Codex updates** through Microsoft Store update the original install,
+  not the patched copy. Re-run the installer after a Codex update to roll
+  forward.
+- **macOS support is experimental** - the script follows a standard
+  Electron-patching pattern, but the author has not personally tested it.
+- **The patched copy is not officially signed.** It carries an ad-hoc
+  signature on macOS, and on Windows it is no longer MSIX-signed.
+- **Future Codex UI changes** may move bundle filenames. The script will
+  bail out with a clear error rather than patch the wrong file - report
+  it as an issue and a new release will be cut.
+- **Trust model:** the one-line installer pulls from this repo's `main`
+  branch. Anyone running it implicitly trusts the maintainer's GitHub
+  account. The repo is small and auditable - read the scripts before you
+  run them.
+
 ---
 
 ## ⚠️ Disclaimer - הסרת אחריות
@@ -178,9 +195,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
 
 ### English summary
 
-Drop-in RTL (right-to-left) patch for OpenAI Codex Desktop on Windows.
-Detects Hebrew/Arabic text in the composer and streamed responses, aligns RTL
-content naturally, keeps code blocks LTR.
+Drop-in RTL (right-to-left) patch for **OpenAI Codex Desktop**. Windows
+support is stable; macOS support is experimental. Detects Hebrew/Arabic
+text in the composer and streamed responses, aligns RTL content naturally,
+keeps code blocks LTR.
 
 **Install (one-liner, no admin):**
 
