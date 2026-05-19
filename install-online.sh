@@ -11,7 +11,9 @@
 set -euo pipefail
 
 REPO="${RT_AI_CODEX_REPO:-rt25ai/codex-rtl-rt-ai}"
-BRANCH="${RT_AI_CODEX_BRANCH:-main}"
+# Pin to a release tag by default. Override with RT_AI_CODEX_BRANCH=main only
+# if you intentionally want the bleeding edge.
+BRANCH="${RT_AI_CODEX_BRANCH:-v0.1.1}"
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -36,7 +38,11 @@ command -v unzip >/dev/null 2>&1 || die "unzip is required but not found."
 TMP_ROOT="$(mktemp -d -t rt-ai-codex-rtl-XXXXXX)"
 trap 'rm -rf "$TMP_ROOT" 2>/dev/null || true' EXIT
 
-ZIP_URL="https://codeload.github.com/${REPO}/zip/refs/heads/${BRANCH}"
+if [[ "$BRANCH" =~ ^v[0-9]+\. ]]; then
+    ZIP_URL="https://codeload.github.com/${REPO}/zip/refs/tags/${BRANCH}"
+else
+    ZIP_URL="https://codeload.github.com/${REPO}/zip/refs/heads/${BRANCH}"
+fi
 ZIP_PATH="${TMP_ROOT}/source.zip"
 EXTRACT_DIR="${TMP_ROOT}/extract"
 

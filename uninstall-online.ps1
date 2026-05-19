@@ -9,7 +9,7 @@ Downloads patch.ps1 and runs it with -Uninstall. No admin required.
 [CmdletBinding()]
 param(
     [string] $Repo = "rt25ai/codex-rtl-rt-ai",
-    [string] $Branch = "main"
+    [string] $Branch = "v0.1.1"
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,7 +32,11 @@ try {
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
     New-Item -ItemType Directory -Path $extractDir | Out-Null
 
-    $zipUrl = "https://codeload.github.com/$Repo/zip/refs/heads/$Branch"
+    if ($Branch -match '^v\d+\.') {
+        $zipUrl = "https://codeload.github.com/$Repo/zip/refs/tags/$Branch"
+    } else {
+        $zipUrl = "https://codeload.github.com/$Repo/zip/refs/heads/$Branch"
+    }
     Write-Step "Downloading $zipUrl"
     Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
     Write-Ok "Downloaded."
