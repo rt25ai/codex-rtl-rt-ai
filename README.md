@@ -23,7 +23,7 @@ By **RT-AI** - [rt-ai.co.il](https://rt-ai.co.il)
 irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.ps1 | iex
 ```
 
-זהו. בסוף יופיע שורטקאט בשם **"Codex"** על שולחן העבודה ובתפריט Start, ותפעיל
+זהו. בסוף יופיע קיצור דרך בשם **"Codex"** על שולחן העבודה ובתפריט Start, והוא יפתח
 את הגרסה החדשה עם תמיכה ב-RTL.
 
 > **דרישות:** [Node.js (LTS)](https://nodejs.org/) + Codex Desktop מ-Microsoft Store.
@@ -50,53 +50,14 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install
 
 ## Before / After
 
-<table dir="ltr">
-<tr><th>בלי הפאצ' (Before)</th><th>עם הפאצ' (After)</th></tr>
-<tr>
-<td>
+![Before and after RTL behavior in Codex Desktop](docs/rtl-before-after.png)
 
-```
-+----------------------------------+
-| Codex                            |
-+----------------------------------+
-| Response from Codex:             |
-|                                  |
-| ?Python -ב for loop כתוב לי   |
-| .for i in range(10):             |
-|     print(i)                     |
-|                                  |
-| [Composer]                       |
-| | אנגלית and קוד עם שאלה כתוב   |
-+----------------------------------+
-       ^ העברית "נשפכת" שמאלה,
-         הסימני שאלה והפיסוק בצד הלא נכון,
-         הצמדה לימין לא קיימת.
-```
+**מה משתנה בפועל:**
 
-</td>
-<td>
-
-```
-+----------------------------------+
-| Codex                            |
-+----------------------------------+
-|             :Codex מ Response    |
-|                                  |
-|   ?כתוב לי for loop ב-Python    |
-|             for i in range(10):  |
-|                     print(i)     |
-|                                  |
-|                       [Composer] |
-| כתוב שאלה עם קוד and אנגלית |   |
-+----------------------------------+
-       ^ העברית מיושרת לימין,
-         פיסוק במקום הנכון,
-         בלוקי קוד נשארים LTR.
-```
-
-</td>
-</tr>
-</table>
+- לפני הפאצ': טקסט עברי יכול להיצמד לצד הלא נכון, סימני שאלה ופיסוק נראים
+  הפוכים, ושורות מעורבות עברית/אנגלית מרגישות שבורות.
+- אחרי הפאצ': הודעות בעברית מיושרות לימין, הפיסוק נשאר במקום הטבעי, ובלוקי
+  קוד ממשיכים להופיע משמאל לימין כדי שלא יישברו.
 
 **מה הפאצ' מזהה אוטומטית:**
 

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1200, initial-scale=1">
+  <title>Codex RTL Patch - Before / After</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      width: 1200px;
+      height: 640px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 90% 10%, rgba(14, 165, 233, 0.16), transparent 28%),
+        radial-gradient(circle at 8% 92%, rgba(249, 115, 22, 0.12), transparent 26%),
+        linear-gradient(135deg, #07111f, #111827);
+      color: #e5f2ff;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    .frame {
+      width: 1200px;
+      height: 640px;
+      padding: 34px 58px 26px;
+    }
+
+    h1 {
+      margin: 0;
+      text-align: center;
+      font-size: 38px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 10px 0 28px;
+      text-align: center;
+      color: #9fb3c8;
+      font-size: 19px;
+    }
+
+    .grid {
+      direction: ltr;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    .panel {
+      height: 420px;
+      border: 1px solid #334155;
+      border-radius: 24px;
+      background: #0f172a;
+      box-shadow: 0 22px 60px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+    }
+
+    .panel.after {
+      border-color: rgba(34, 197, 94, 0.55);
+      background:
+        linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(34, 197, 94, 0.12)),
+        #0f172a;
+    }
+
+    .bar {
+      height: 70px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 28px;
+      border-bottom: 1px solid #334155;
+      background: #1e293b;
+    }
+
+    .after .bar {
+      border-bottom-color: rgba(34, 197, 94, 0.45);
+      background: #102336;
+    }
+
+    .dot { width: 15px; height: 15px; border-radius: 999px; }
+    .red { background: #ef4444; }
+    .yellow { background: #f59e0b; }
+    .gray { background: #64748b; }
+    .green { background: #22c55e; }
+    .blue { background: #38bdf8; }
+    .purple { background: #a78bfa; }
+
+    .bar-title {
+      flex: 1;
+      direction: rtl;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .content {
+      height: 350px;
+      padding: 28px 34px;
+    }
+
+    .mock {
+      height: 214px;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      background: #08111f;
+      padding: 24px 26px;
+    }
+
+    .after .mock {
+      border-color: rgba(56, 189, 248, 0.52);
+      background: #07111f;
+    }
+
+    .label {
+      margin-bottom: 22px;
+      color: #cbd5e1;
+      font: 700 18px "Cascadia Mono", Consolas, monospace;
+    }
+
+    .broken {
+      direction: ltr;
+      text-align: left;
+      font-size: 27px;
+      line-height: 1.45;
+      white-space: nowrap;
+    }
+
+    .fixed {
+      direction: rtl;
+      text-align: right;
+      font-size: 27px;
+      line-height: 1.45;
+      white-space: nowrap;
+    }
+
+    .ltr {
+      direction: ltr;
+      unicode-bidi: isolate;
+      display: inline-block;
+    }
+
+    .code {
+      direction: ltr;
+      text-align: left;
+      display: inline-block;
+      margin-top: 18px;
+      padding: 16px 22px;
+      min-width: 280px;
+      border: 1px solid #3b82f6;
+      border-radius: 10px;
+      background: #111827;
+      color: #e5f2ff;
+      font: 700 20px/1.7 "Cascadia Mono", Consolas, monospace;
+      white-space: pre;
+    }
+
+    .before .code { border-color: #475569; }
+    .after .code { border-color: #38bdf8; }
+
+    .notes {
+      margin: 22px 0 0;
+      direction: rtl;
+      text-align: right;
+      color: #cbd5e1;
+      font-size: 18px;
+      line-height: 1.55;
+      list-style: none;
+      padding: 0;
+    }
+
+    .notes li { margin: 4px 0; }
+    .bad { color: #fecaca; }
+    .good { color: #bbf7d0; }
+
+    .footer {
+      margin: 24px auto 0;
+      width: max-content;
+      max-width: 780px;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.86);
+      color: #b8c7d9;
+      padding: 10px 26px;
+      font-size: 18px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <h1>כך הפאצ' מתקן עברית ב-<span class="ltr">Codex Desktop</span></h1>
+    <p class="subtitle">עברית מיושרת לימין, פיסוק במקום הנכון, וקוד נשאר משמאל לימין</p>
+
+    <section class="grid">
+      <article class="panel before">
+        <div class="bar">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot gray"></span>
+          <div class="bar-title">לפני הפאצ'</div>
+        </div>
+        <div class="content">
+          <div class="mock">
+            <div class="label">Codex response:</div>
+            <div class="broken">?Python-ב for loop כתוב לי</div>
+            <div class="code">for i in range(10):
+    print(i)</div>
+          </div>
+          <ul class="notes bad">
+            <li>עברית נצמדת לצד הלא נכון</li>
+            <li>סימני שאלה ופיסוק קופצים</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="panel after">
+        <div class="bar">
+          <span class="dot green"></span>
+          <span class="dot blue"></span>
+          <span class="dot purple"></span>
+          <div class="bar-title">אחרי הפאצ'</div>
+        </div>
+        <div class="content">
+          <div class="mock">
+            <div class="fixed">כתוב לי <span class="ltr">for loop</span> ב-<span class="ltr">Python</span>?</div>
+            <div class="code">for i in range(10):
+    print(i)</div>
+          </div>
+          <ul class="notes good">
+            <li>עברית מיושרת לימין באופן טבעי</li>
+            <li>בלוקי קוד נשארים LTR וקריאים</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <div class="footer">הפאצ' מזהה את כיוון הטקסט בכל הודעה בלי לשבור קוד, אנגלית או Markdown</div>
+  </main>
+</body>
+</html>
