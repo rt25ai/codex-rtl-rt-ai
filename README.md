@@ -1,7 +1,7 @@
 # Codex RTL Patch for Hebrew on Codex Desktop
+A drop-in RTL patch for OpenAI Codex Desktop that improves Hebrew and Arabic writing, mixed RTL/LTR text, punctuation alignment, and keeps code blocks left-to-right.
 
-> תמיכה אוטומטית בעברית/ערבית (RTL) ל-OpenAI Codex Desktop על Windows.
-> Adds automatic Hebrew (RTL) support to OpenAI Codex Desktop on Windows.
+תיקון RTL ל-OpenAI Codex Desktop שמשפר כתיבה בעברית ובערבית, טקסט מעורב עברית/אנגלית, יישור סימני פיסוק ושמירה על בלוקי קוד משמאל לימין.
 
 מזהה טקסט עברי/ערבי בזמן אמת ב-composer וב-streaming של התשובות, מיישר אותו
 לימין באופן טבעי, ושומר על בלוקי קוד ב-LTR. **לא דורש הרשאות admin** ולא נוגע
@@ -12,6 +12,10 @@ By **RT-AI** - [rt-ai.co.il](https://rt-ai.co.il)
 ![platform](https://img.shields.io/badge/platform-windows-blue) ![admin](https://img.shields.io/badge/admin-not%20required-green) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ---
+## Who is this for?
+
+This project is for Hebrew and Arabic users who use OpenAI Codex Desktop and want natural RTL writing inside the app, without changing their original Codex installation.
+מיועד למשתמשי עברית וערבית שעובדים עם OpenAI Codex Desktop ורוצים כתיבה טבעית מימין לשמאל בתוך האפליקציה, בלי לשנות את ההתקנה המקורית.
 
 ## התקנה - שורה אחת
 
@@ -47,6 +51,8 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install
 > על אותו ה-payload של גרסת Windows ועל הדפוס המקובל לפאצ'ים של Electron
 > ב-macOS (ad-hoc codesign, ASAR fuse). אם נתקלתם בבעיה — פתחו
 > [issue](https://github.com/rt25ai/codex-rtl-rt-ai/issues) או PR.
+### macOS - experimental
+macOS support is included but has not yet been personally tested by the author. Contributions, confirmations and pull requests are welcome.
 
 ## Before / After
 
@@ -195,3 +201,10 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install
   is left untouched. Only a copy under the user profile is patched.
 - Shortcuts/launchers named "Codex" point to the patched copy.
 - Personal use, AS-IS, MIT license. Not affiliated with OpenAI.
+
+## Known limitations
+
+- Codex updates may require re-running the installer.
+- macOS support is experimental.
+- The patched copy is not an officially signed OpenAI app.
+- Future Codex UI changes may require an update to this patch.
