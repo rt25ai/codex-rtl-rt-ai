@@ -13,7 +13,9 @@ By **RT-AI** - [rt-ai.co.il](https://rt-ai.co.il)
 
 ---
 
-## התקנה - שורה אחת ב-PowerShell
+## התקנה — שורה אחת
+
+### Windows
 
 פתחו **PowerShell** (לא חייב admin), הדביקו את השורה הזו, ולחצו Enter:
 
@@ -24,8 +26,27 @@ irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online
 זהו. בסוף יופיע שורטקאט בשם **"Codex"** על שולחן העבודה ובתפריט Start, ותפעיל
 את הגרסה החדשה עם תמיכה ב-RTL.
 
-> **דרישה יחידה:** [Node.js (LTS)](https://nodejs.org/) מותקן ו-Codex Desktop
-> מותקן מ-Microsoft Store. *לא נדרשים admin / takeown / שינויי הרשאות.*
+> **דרישות:** [Node.js (LTS)](https://nodejs.org/) + Codex Desktop מ-Microsoft Store.
+> לא נדרשים admin / takeown / שינויי הרשאות.
+
+### macOS (community / untested)
+
+פתחו **Terminal** והדביקו:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.sh | bash
+```
+
+זה ייצור `~/Applications/Codex-RT-AI.app` עם תמיכת RTL, מבלי לגעת ב-`Codex.app`
+המקורי תחת `/Applications`.
+
+> **דרישות:** [Node.js](https://nodejs.org/) (`brew install node`) +
+> Xcode CLI tools (`xcode-select --install`) + Codex Desktop מותקן ב-`/Applications`.
+>
+> ⚠️ **גרסת ה-Mac לא נבדקה על-ידי המחבר** (אין לי Mac בהישג יד). היא בנויה
+> על אותו ה-payload של גרסת Windows ועל הדפוס המקובל לפאצ'ים של Electron
+> ב-macOS (ad-hoc codesign, ASAR fuse). אם נתקלתם בבעיה — פתחו
+> [issue](https://github.com/rt25ai/codex-rtl-rt-ai/issues) או PR.
 
 ## Before / After
 
@@ -88,16 +109,18 @@ irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online
 
 ## הסרה / סטטוס
 
-אחרי שמתקינים, בתיקייה שנפתחה זמנית — או דרך הריפו המקומי:
-
+**Windows:**
 ```powershell
-# הסרה
 irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/uninstall-online.ps1 | iex
-
-# או דאבל-קליק על uninstall.bat בתיקייה המקומית
 ```
 
-המקור של Codex (תחת `WindowsApps`) **לא מושפע** וממשיך לעבוד רגיל.
+**macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/uninstall-online.sh | bash
+```
+
+המקור של Codex (תחת `WindowsApps` ב-Windows, או `/Applications` ב-Mac)
+**לא מושפע** וממשיך לעבוד רגיל.
 
 ## עדכוני Codex
 
@@ -127,12 +150,19 @@ irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/uninstall-onli
 
 ```text
 .
-|-- install.bat              # מתקין בדאבל-קליק (מקומי)
-|-- install-online.ps1       # מתקין one-liner מ-GitHub
-|-- uninstall.bat            # מסיר בדאבל-קליק
-|-- status.bat               # בדיקת סטטוס
-|-- patch.ps1                # הסקריפט הראשי
-|-- codex-rtl-payload.js     # ה-JS שמוזרק ל-webview
+|-- codex-rtl-payload.js     # ה-JS שמוזרק ל-webview (משותף Win/Mac)
+|--
+|-- patch.ps1                # סקריפט ראשי - Windows
+|-- install.bat              # מתקין בדאבל-קליק - Windows
+|-- install-online.ps1       # מתקין one-liner - Windows
+|-- uninstall.bat            # מסיר בדאבל-קליק - Windows
+|-- uninstall-online.ps1     # מסיר one-liner - Windows
+|-- status.bat               # סטטוס - Windows
+|--
+|-- patch.sh                 # סקריפט ראשי - macOS
+|-- install-online.sh        # מתקין one-liner - macOS
+|-- uninstall-online.sh      # מסיר one-liner - macOS
+|--
 |-- tests/verify-static.ps1  # בדיקות סטטיות
 |-- README.md
 |-- LICENSE
@@ -188,13 +218,19 @@ content naturally, keeps code blocks LTR.
 **Install (one-liner, no admin):**
 
 ```powershell
+# Windows (PowerShell)
 irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.ps1 | iex
+```
+
+```bash
+# macOS (Terminal) - untested, community contributions welcome
+curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.sh | bash
 ```
 
 **Notes:**
 
-- No admin required.
-- Original Codex (under WindowsApps) is left untouched — only a copy at
-  `%LOCALAPPDATA%\Programs\Codex-RT-AI` is patched.
-- Desktop and Start Menu shortcuts named "Codex" point to the patched copy.
+- No admin / sudo required.
+- Original Codex (under `WindowsApps` on Windows / `/Applications` on macOS)
+  is left untouched. Only a copy under the user profile is patched.
+- Shortcuts/launchers named "Codex" point to the patched copy.
 - Personal use, AS-IS, MIT license. Not affiliated with OpenAI.

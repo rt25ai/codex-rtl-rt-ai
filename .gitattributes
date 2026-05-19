@@ -1,0 +1,22 @@
+# Ensure shell scripts always have LF endings, even on Windows clones.
+# Bash on macOS / Linux chokes on CRLF in script files.
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# PowerShell, batch, and Windows-only scripts keep CRLF.
+*.ps1       text eol=crlf
+*.psm1      text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# Cross-platform text - leave it to git's default.
+*.md        text
+*.json      text
+*.js        text
+*.gitignore text
+
+# Binary safety guards (just in case).
+*.png       binary
+*.jpg       binary
+*.gif       binary
+*.icns      binary

@@ -64,4 +64,20 @@ Assert-True ($install.Contains("ExecutionPolicy Bypass")) "install.bat should by
 Assert-True ($install.Contains("patch.ps1")) "install.bat should call patch.ps1"
 Assert-True ($install.Contains("%~dp0")) "install.bat must cd to its own directory to avoid the system32 cwd bug"
 
+# macOS scripts
+$macPatcher = Join-Path $repoRoot "patch.sh"
+$macInstall = Join-Path $repoRoot "install-online.sh"
+$macUninstall = Join-Path $repoRoot "uninstall-online.sh"
+Assert-True (Test-Path -LiteralPath $macPatcher) "patch.sh (macOS) is missing"
+Assert-True (Test-Path -LiteralPath $macInstall) "install-online.sh (macOS) is missing"
+Assert-True (Test-Path -LiteralPath $macUninstall) "uninstall-online.sh (macOS) is missing"
+
+$macP = Get-Content -LiteralPath $macPatcher -Raw
+Assert-True ($macP.Contains("Codex-RT-AI.app")) "macOS patcher should target Codex-RT-AI.app"
+Assert-True ($macP.Contains("codex-rtl-payload.js")) "macOS patcher should reference the shared payload"
+Assert-True ($macP.Contains("EnableEmbeddedAsarIntegrityValidation=off")) "macOS patcher should disable the ASAR fuse"
+Assert-True ($macP.Contains("codesign --force --deep --sign -")) "macOS patcher should re-sign ad-hoc"
+Assert-True ($macP.Contains("RT-AI CODEX RTL PATCH START")) "macOS patcher should detect the RT-AI payload marker"
+Assert-True (-not $macP.Contains("Claude")) "macOS patcher should be Codex-specific (no leftover Claude references)"
+
 Write-Host "RT-AI static verification passed." -ForegroundColor Green
