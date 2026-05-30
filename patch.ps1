@@ -483,6 +483,49 @@ function Write-PatchMarker {
     $marker | ConvertTo-Json | Set-Content -LiteralPath $markerPath -Encoding UTF8
 }
 
+function Copy-CodexApp {
+    param(
+        [string] $Source,
+        [string] $Destination
+    )
+
+    # The Codex app tree contains deeply nested node_modules (e.g. the
+    # serialport native bindings under @worklouder/device-kit-oai) whose
+    # paths exceed the Windows MAX_PATH (260 char) limit. Copy-Item cannot
+    # handle those and fails with "Could not find a part of the path".
+    # robocopy reads/writes long paths natively, so use it for the bulk copy.
+    $robocopy = Get-ToolPath @("robocopy.exe")
+    if (-not $robocopy) {
+        throw "robocopy.exe not found (expected on all supported Windows versions)."
+    }
+
+    New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+
+    # Call robocopy via the call operator (not Start-Process, which mangles
+    # arguments that contain spaces such as "C:\Program Files"). The job
+    # flags suppress robocopy's verbose output.
+    $robocopyArgs = @(
+        $Source,
+        $Destination,
+        "/E",          # copy all subdirectories, including empty ones
+        "/COPY:DAT",   # data, attributes, timestamps (skip ACL/owner from WindowsApps)
+        "/R:1",        # retry once on a failed file
+        "/W:1",        # wait 1s between retries
+        "/NP",         # no per-file progress
+        "/NFL",        # no file list
+        "/NDL",        # no directory list
+        "/NJH",        # no job header
+        "/NJS"         # no job summary
+    )
+
+    & $robocopy @robocopyArgs | Out-Null
+    # robocopy exit codes: 0-7 indicate success (bits for copied/extra/mismatch);
+    # 8 and above indicate at least one genuine copy failure.
+    if ($LASTEXITCODE -ge 8) {
+        throw "robocopy failed (exit $LASTEXITCODE) copying $Source -> $Destination"
+    }
+}
+
 function Install-Patch {
     $npx = Get-ToolPath @("npx.cmd")
     if (-not $npx) {
@@ -501,7 +544,7 @@ function Install-Patch {
     New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
 
     Write-Step "Copying Codex app"
-    Copy-Item -LiteralPath $source -Destination $destination -Recurse -Force
+    Copy-CodexApp $source $destination
     Write-Ok "Copied app to $destination"
 
     Patch-Asar $destination $npx
