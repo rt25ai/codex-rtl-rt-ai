@@ -13,7 +13,7 @@ param(
     # Pin to a release tag by default so a compromised main branch cannot
     # silently affect users running the published one-liner. Pass -Branch main
     # explicitly only if you intentionally want the bleeding edge.
-    [string] $Branch = "v0.1.1"
+    [string] $Branch = "v0.1.2"
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,7 +40,7 @@ try {
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
     New-Item -ItemType Directory -Path $extractDir | Out-Null
 
-    # Treat a value that looks like a semver tag (e.g. v0.1.1) as a tag ref.
+    # Treat a value that looks like a semver tag (e.g. v0.1.2) as a tag ref.
     # Anything else (main, dev, feature/x) goes through refs/heads/.
     if ($Branch -match '^v\d+\.') {
         $zipUrl = "https://codeload.github.com/$Repo/zip/refs/tags/$Branch"

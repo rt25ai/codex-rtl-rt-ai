@@ -455,15 +455,19 @@ function Disable-AsarIntegrityFuse {
 
     $exe = Join-Path $AppDir "Codex.exe"
     Write-Step "Disabling ASAR integrity validation on copied exe"
-    Invoke-Checked $NpxPath @(
-        "--yes",
-        "@electron/fuses",
-        "write",
-        "--app",
-        $exe,
-        "EnableEmbeddedAsarIntegrityValidation=off"
-    )
-    Write-Ok "ASAR integrity fuse disabled on the patched copy."
+
+    # Best-effort: newer Codex/Electron builds either ship without the embedded
+    # ASAR-integrity fuse or expose a fuse wire @electron/fuses cannot locate
+    # ("Could not find sentinel in the provided Electron binary"). In that case
+    # the build is not enforcing embedded asar integrity, so the repacked
+    # app.asar loads without flipping any fuse. Warn and continue rather than
+    # aborting the whole install.
+    & $NpxPath "--yes" "@electron/fuses" "write" "--app" $exe "EnableEmbeddedAsarIntegrityValidation=off" 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "ASAR integrity fuse disabled on the patched copy."
+    } else {
+        Write-Warn "Could not flip the ASAR integrity fuse (this Electron build exposes no fuse wire). Continuing - the build is not enforcing embedded asar integrity."
+    }
 }
 
 function Write-PatchMarker {

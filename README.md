@@ -24,7 +24,7 @@ This project is for Hebrew and Arabic users who use OpenAI Codex Desktop and wan
 פתחו **PowerShell** (לא חייב admin), הדביקו את השורה הזו, ולחצו Enter:
 
 ```powershell
-irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.1/install-online.ps1 | iex
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.2/install-online.ps1 | iex
 ```
 
 זהו. בסוף יופיע קיצור דרך בשם **"Codex"** על שולחן העבודה ובתפריט Start, והוא יפתח
@@ -44,7 +44,7 @@ welcome.
 פתחו **Terminal** והדביקו:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.1/install-online.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.2/install-online.sh | bash
 ```
 
 זה ייצור `~/Applications/Codex-RT-AI.app` עם תמיכת RTL, מבלי לגעת ב-`Codex.app`
@@ -78,12 +78,12 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.1/insta
 
 **Windows:**
 ```powershell
-irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.1/uninstall-online.ps1 | iex
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.2/uninstall-online.ps1 | iex
 ```
 
 **macOS:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.1/uninstall-online.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.2/uninstall-online.sh | bash
 ```
 
 המקור של Codex (תחת `WindowsApps` ב-Windows, או `/Applications` ב-Mac)
@@ -154,7 +154,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
   bail out with a clear error rather than patch the wrong file - report
   it as an issue and a new release will be cut.
 - **Trust model:** the one-line installer is pinned to a signed release
-  tag (currently `v0.1.1`), not the `main` branch. A compromised `main`
+  tag (currently `v0.1.2`), not the `main` branch. A compromised `main`
   cannot silently affect users who run the published one-liner. The repo
   is small and auditable - read the scripts before you run them.
 
@@ -204,12 +204,12 @@ keeps code blocks LTR.
 
 ```powershell
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.1/install-online.ps1 | iex
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.2/install-online.ps1 | iex
 ```
 
 ```bash
 # macOS (Terminal) - untested, community contributions welcome
-curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.1/install-online.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.2/install-online.sh | bash
 ```
 
 **Notes:**
