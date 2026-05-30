@@ -15,6 +15,8 @@ param(
     [switch] $Status,
     [switch] $Launch,
     [switch] $NoLaunch,
+    [switch] $AutoUpdate,
+    [switch] $NoAutoUpdate,
     [string] $SourceAppDir,
     [string] $PatchedAppDir = (Join-Path $env:LOCALAPPDATA "Programs\Codex-RT-AI")
 )
@@ -26,6 +28,12 @@ $Script:PayloadPath = Join-Path $Script:RepoRoot "codex-rtl-payload.js"
 $Script:ShortcutName = "Codex.lnk"
 $Script:LegacyShortcutNames = @("Codex RT-AI.lnk", "Codex RTL.lnk")
 $Script:LegacyPatchedDirs = @("Codex-RTL")
+
+# Auto-update: a scheduled task re-applies the patch whenever the Microsoft
+# Store updates Codex, so the user never has to re-run the installer.
+$Script:TaskName = "Codex RT-AI RTL Auto-Update"
+$Script:PatcherDir = Join-Path $env:LOCALAPPDATA "Programs\Codex-RT-AI-patcher"
+$Script:AutoUpdateLog = Join-Path $Script:PatcherDir "auto-update.log"
 
 function Write-Step {
     param([string] $Message)
@@ -530,6 +538,161 @@ function Copy-CodexApp {
     }
 }
 
+function Get-PatchedSourceDir {
+    param([string] $AppDir)
+
+    $markerPath = Join-Path $AppDir "resources\rt-ai-codex-rtl-patch.json"
+    if (-not (Test-Path -LiteralPath $markerPath)) { return $null }
+    try {
+        return ((Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json).sourceAppDir)
+    } catch {
+        return $null
+    }
+}
+
+function Write-AutoUpdateLog {
+    param([string] $Message)
+    try {
+        $dir = Split-Path -Parent $Script:AutoUpdateLog
+        if (-not (Test-Path -LiteralPath $dir)) {
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+        Add-Content -LiteralPath $Script:AutoUpdateLog -Value ("{0}  {1}" -f (Get-Date).ToString("o"), $Message) -Encoding UTF8
+    } catch {
+        # Logging must never break the update flow.
+    }
+}
+
+function Deploy-Patcher {
+    # Copy this script + payload into a stable location so the scheduled task
+    # has something persistent to run (the online installer runs from a temp
+    # folder that gets deleted).
+    if (-not (Test-Path -LiteralPath $Script:PatcherDir)) {
+        New-Item -ItemType Directory -Path $Script:PatcherDir -Force | Out-Null
+    }
+
+    $thisScript = $PSCommandPath
+    if (-not $thisScript) { $thisScript = $MyInvocation.MyCommand.Path }
+    $targetScript = Join-Path $Script:PatcherDir "patch.ps1"
+    $targetPayload = Join-Path $Script:PatcherDir "codex-rtl-payload.js"
+
+    if ($thisScript -and (Resolve-FullPath $thisScript) -ine (Resolve-FullPath $targetScript)) {
+        Copy-Item -LiteralPath $thisScript -Destination $targetScript -Force
+    }
+    if ((Test-Path -LiteralPath $Script:PayloadPath) -and
+        (Resolve-FullPath $Script:PayloadPath) -ine (Resolve-FullPath $targetPayload)) {
+        Copy-Item -LiteralPath $Script:PayloadPath -Destination $targetPayload -Force
+    }
+
+    return $targetScript
+}
+
+function Register-AutoUpdateTask {
+    Write-Step "Registering auto-update task"
+
+    if (-not (Get-Command Register-ScheduledTask -ErrorAction SilentlyContinue)) {
+        Write-Warn "ScheduledTasks module not available; skipping auto-update registration."
+        return
+    }
+
+    $patcherScript = Deploy-Patcher
+    $psExe = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
+    if (-not (Test-Path -LiteralPath $psExe)) { $psExe = "powershell.exe" }
+
+    $arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$patcherScript`" -AutoUpdate"
+    $action = New-ScheduledTaskAction -Execute $psExe -Argument $arguments
+
+    # Triggers: the AppX deployment event (near-immediate after a Store update),
+    # at every logon, and hourly as a safety net. The task no-ops fast when the
+    # version has not changed, so over-triggering is harmless. Built with the
+    # ScheduledTasks cmdlets (valid objects, no hand-written XML to mis-format).
+    $triggers = New-Object System.Collections.Generic.List[object]
+    try {
+        $cls = Get-CimClass -Namespace "ROOT\Microsoft\Windows\TaskScheduler" -ClassName MSFT_TaskEventTrigger -ErrorAction Stop
+        $evt = New-CimInstance -CimClass $cls -ClientOnly
+        $evt.Enabled = $true
+        $evt.Subscription = '<QueryList><Query Id="0" Path="Microsoft-Windows-AppXDeploymentServer/Operational"><Select Path="Microsoft-Windows-AppXDeploymentServer/Operational">*[System[(EventID=400 or EventID=401 or EventID=404)]]</Select></Query></QueryList>'
+        $evt.Delay = "PT1M"
+        $triggers.Add($evt)
+    } catch {
+        Write-Info "AppX event trigger unavailable; using logon + hourly triggers."
+    }
+    $triggers.Add((New-ScheduledTaskTrigger -AtLogOn))
+    try {
+        $triggers.Add((New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)))
+    } catch {
+        $triggers.Add((New-ScheduledTaskTrigger -Daily -At "12:00"))
+    }
+
+    # RunLevel Limited: registers and runs as the current user without elevation
+    # or a UAC prompt. The app copy is read via Get-AppxPackage's user-readable
+    # InstallLocation, so the unelevated re-patch works.
+    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+
+    try {
+        Register-ScheduledTask -TaskName $Script:TaskName -Action $action -Trigger $triggers.ToArray() -Principal $principal -Settings $settings -Description "Re-applies the RT-AI Codex RTL patch after Microsoft Store updates Codex (https://rt-ai.co.il)." -Force | Out-Null
+        Write-Ok "Auto-update enabled. The patch will re-apply automatically when Codex updates."
+    } catch {
+        Write-Warn "Could not register the auto-update task ($($_.Exception.Message)). The patch still works; re-run the installer after a Codex update."
+    }
+}
+
+function Unregister-AutoUpdateTask {
+    if (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $Script:TaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    }
+    if (Test-Path -LiteralPath $Script:PatcherDir) {
+        Remove-Item -LiteralPath $Script:PatcherDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-AutoUpdate {
+    Write-AutoUpdateLog "Auto-update check started."
+
+    try {
+        $source = Find-CodexAppDir $SourceAppDir
+    } catch {
+        Write-AutoUpdateLog "No Store Codex app found; nothing to do. ($($_.Exception.Message))"
+        return
+    }
+
+    $destination = Resolve-FullPath $PatchedAppDir
+    if (-not (Test-Path -LiteralPath (Join-Path $destination "Codex.exe"))) {
+        Write-AutoUpdateLog "No patched copy at $destination; skipping (run -Install first)."
+        return
+    }
+
+    $patchedSource = Get-PatchedSourceDir $destination
+    if ($patchedSource -and ((Resolve-FullPath $patchedSource) -ieq $source)) {
+        Write-AutoUpdateLog "Already up to date ($source)."
+        return
+    }
+
+    # A new Codex version is available. Do not interrupt a running session -
+    # re-patch only when the patched Codex is not running; a later trigger
+    # (logon / hourly / next update event) picks it up otherwise.
+    $running = @(Get-Process -Name "Codex" -ErrorAction SilentlyContinue | Where-Object {
+        $p = $null; try { $p = $_.Path } catch { $p = $null }
+        $p -and $p.StartsWith($destination, [System.StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($running.Count -gt 0) {
+        Write-AutoUpdateLog "Update available ($source) but patched Codex is running; deferring."
+        return
+    }
+
+    Write-AutoUpdateLog "Updating patch from [$patchedSource] to [$source]."
+    try {
+        # Re-patch silently (no window, no launch) from the scheduled task.
+        $script:NoLaunch = $true
+        Install-Patch
+        Write-AutoUpdateLog "Re-patched successfully to $source."
+    } catch {
+        Write-AutoUpdateLog "Re-patch FAILED: $($_.Exception.Message)"
+        throw
+    }
+}
+
 function Install-Patch {
     $npx = Get-ToolPath @("npx.cmd")
     if (-not $npx) {
@@ -558,6 +721,14 @@ function Install-Patch {
     Remove-LegacyPatchedDirs
     New-PatchedShortcut $destination
 
+    if (-not $NoAutoUpdate) {
+        try {
+            Register-AutoUpdateTask
+        } catch {
+            Write-Warn "Auto-update setup failed ($($_.Exception.Message)). The patch still works; re-run the installer after a Codex update."
+        }
+    }
+
     if (-not $NoLaunch) {
         Start-PatchedCodex $destination
     } else {
@@ -571,6 +742,7 @@ function Install-Patch {
 function Uninstall-Patch {
     $destination = Resolve-FullPath $PatchedAppDir
     Stop-PatchedCodex $destination
+    Unregister-AutoUpdateTask
     Remove-DirectorySafe $destination
     Remove-PatchedShortcut
     Remove-LegacyPatchedDirs
@@ -637,6 +809,14 @@ function Show-Status {
     } else {
         Write-Info "Start Menu shortcut is not installed."
     }
+
+    if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {
+        if (Get-ScheduledTask -TaskName $Script:TaskName -ErrorAction SilentlyContinue) {
+            Write-Ok "Auto-update: enabled (task '$($Script:TaskName)')."
+        } else {
+            Write-Info "Auto-update: not registered. Re-run -Install to enable it."
+        }
+    }
 }
 
 $selectedActions = @()
@@ -644,6 +824,7 @@ if ($Install) { $selectedActions += "Install" }
 if ($Uninstall) { $selectedActions += "Uninstall" }
 if ($Status) { $selectedActions += "Status" }
 if ($Launch) { $selectedActions += "Launch" }
+if ($AutoUpdate) { $selectedActions += "AutoUpdate" }
 
 if ($selectedActions.Count -eq 0) {
     $Install = $true
@@ -651,10 +832,12 @@ if ($selectedActions.Count -eq 0) {
 }
 
 if ($selectedActions.Count -gt 1) {
-    throw "Choose only one action: -Install, -Uninstall, -Status, or -Launch."
+    throw "Choose only one action: -Install, -Uninstall, -Status, -Launch, or -AutoUpdate."
 }
 
-if ($Install) {
+if ($AutoUpdate) {
+    Invoke-AutoUpdate
+} elseif ($Install) {
     Install-Patch
 } elseif ($Uninstall) {
     Uninstall-Patch
