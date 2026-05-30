@@ -17,6 +17,8 @@ param(
     [switch] $NoLaunch,
     [switch] $AutoUpdate,
     [switch] $NoAutoUpdate,
+    [switch] $RegisterTask,
+    [switch] $NoElevate,
     [string] $SourceAppDir,
     [string] $PatchedAppDir = (Join-Path $env:LOCALAPPDATA "Programs\Codex-RT-AI")
 )
@@ -634,7 +636,28 @@ function Register-AutoUpdateTask {
         Register-ScheduledTask -TaskName $Script:TaskName -Action $action -Trigger $triggers.ToArray() -Principal $principal -Settings $settings -Description "Re-applies the RT-AI Codex RTL patch after Microsoft Store updates Codex (https://rt-ai.co.il)." -Force | Out-Null
         Write-Ok "Auto-update enabled. The patch will re-apply automatically when Codex updates."
     } catch {
-        Write-Warn "Could not register the auto-update task ($($_.Exception.Message)). The patch still works; re-run the installer after a Codex update."
+        # Creating a scheduled task needs admin once. If we're not elevated,
+        # relaunch just this registration step elevated (single UAC prompt) so
+        # auto-update works even when the installer was run non-elevated.
+        $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+        if (-not $isAdmin -and -not $NoElevate) {
+            Write-Info "Task registration needs administrator rights once; requesting elevation..."
+            $pe = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
+            if (-not (Test-Path -LiteralPath $pe)) { $pe = "powershell.exe" }
+            try {
+                Start-Process $pe -ArgumentList @("-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", "`"$patcherScript`"", "-RegisterTask", "-NoElevate") -Verb RunAs -Wait | Out-Null
+            } catch {
+                Write-Warn "Auto-update not enabled (elevation declined). Re-run the installer as administrator to enable it."
+                return
+            }
+            if ((Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) -and (Get-ScheduledTask -TaskName $Script:TaskName -ErrorAction SilentlyContinue)) {
+                Write-Ok "Auto-update enabled (registered with elevation)."
+            } else {
+                Write-Warn "Auto-update not enabled (elevation declined). Re-run the installer as administrator to enable it."
+            }
+        } else {
+            Write-Warn "Could not register the auto-update task ($($_.Exception.Message)). The patch still works; re-run the installer after a Codex update."
+        }
     }
 }
 
@@ -825,6 +848,7 @@ if ($Uninstall) { $selectedActions += "Uninstall" }
 if ($Status) { $selectedActions += "Status" }
 if ($Launch) { $selectedActions += "Launch" }
 if ($AutoUpdate) { $selectedActions += "AutoUpdate" }
+if ($RegisterTask) { $selectedActions += "RegisterTask" }
 
 if ($selectedActions.Count -eq 0) {
     $Install = $true
@@ -832,10 +856,12 @@ if ($selectedActions.Count -eq 0) {
 }
 
 if ($selectedActions.Count -gt 1) {
-    throw "Choose only one action: -Install, -Uninstall, -Status, -Launch, or -AutoUpdate."
+    throw "Choose only one action: -Install, -Uninstall, -Status, -Launch, -AutoUpdate, or -RegisterTask."
 }
 
-if ($AutoUpdate) {
+if ($RegisterTask) {
+    Register-AutoUpdateTask
+} elseif ($AutoUpdate) {
     Invoke-AutoUpdate
 } elseif ($Install) {
     Install-Patch
