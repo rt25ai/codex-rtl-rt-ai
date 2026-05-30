@@ -29,8 +29,22 @@ PAYLOAD_FILE="$SCRIPT_DIR/codex-rtl-payload.js"
 SOURCE_APP="${CODEX_SOURCE_APP:-/Applications/Codex.app}"
 PATCHED_APP="${CODEX_PATCHED_APP:-$HOME/Applications/Codex-RT-AI.app}"
 PATCHED_ASAR="$PATCHED_APP/Contents/Resources/app.asar"
+MARKER_FILE="$PATCHED_APP/Contents/Resources/rt-ai-codex-rtl-patch.json"
+
+# Auto-update: a launchd agent re-applies the patch whenever Codex updates,
+# so the user never has to re-run the installer.
+PATCHER_DIR="${CODEX_PATCHER_DIR:-$HOME/Library/Application Support/Codex-RT-AI-patcher}"
+AUTOUPDATE_LOG="$PATCHER_DIR/auto-update.log"
+LAUNCH_AGENT_LABEL="co.il.rt-ai.codex-rtl.autoupdate"
+LAUNCH_AGENT_PLIST="$HOME/Library/LaunchAgents/$LAUNCH_AGENT_LABEL.plist"
 
 TMP_DIR=""
+
+# Read an app bundle's short version string ("unknown" if unavailable).
+app_version() {
+    /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
+        "$1/Contents/Info.plist" 2>/dev/null || echo "unknown"
+}
 
 # ---------------------------------------------------------------------------
 # Output helpers
@@ -119,6 +133,101 @@ quit_patched_codex() {
         pkill -f "Codex-RT-AI.app/Contents/MacOS" 2>/dev/null || true
         sleep 1
         success "Codex-RT-AI stopped."
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Auto-update (launchd agent that re-patches when Codex updates)
+# ---------------------------------------------------------------------------
+deploy_patcher() {
+    # Copy this script + payload to a stable location so the launchd agent has
+    # something persistent to run (the online installer runs from a temp dir).
+    mkdir -p "$PATCHER_DIR"
+    local self="$SCRIPT_DIR/$(basename "$0")"
+    if [ -f "$self" ] && [ "$self" != "$PATCHER_DIR/patch.sh" ]; then
+        cp "$self" "$PATCHER_DIR/patch.sh" 2>/dev/null || true
+        chmod +x "$PATCHER_DIR/patch.sh" 2>/dev/null || true
+    fi
+    if [ -f "$PAYLOAD_FILE" ] && [ "$PAYLOAD_FILE" != "$PATCHER_DIR/codex-rtl-payload.js" ]; then
+        cp "$PAYLOAD_FILE" "$PATCHER_DIR/codex-rtl-payload.js" 2>/dev/null || true
+    fi
+}
+
+register_autoupdate() {
+    step "Enabling auto-update"
+    deploy_patcher
+    mkdir -p "$(dirname "$LAUNCH_AGENT_PLIST")"
+
+    # Agent runs hourly and at login; the check no-ops fast when the version is
+    # unchanged. macOS has no Store-update event, so we poll on an interval.
+    cat > "$LAUNCH_AGENT_PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$LAUNCH_AGENT_LABEL</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>$PATCHER_DIR/patch.sh</string>
+        <string>--auto-update</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+    <key>StandardOutPath</key>
+    <string>$AUTOUPDATE_LOG</string>
+    <key>StandardErrorPath</key>
+    <string>$AUTOUPDATE_LOG</string>
+</dict>
+</plist>
+EOF
+
+    launchctl unload "$LAUNCH_AGENT_PLIST" 2>/dev/null || true
+    if launchctl load "$LAUNCH_AGENT_PLIST" 2>/dev/null; then
+        success "Auto-update enabled. The patch re-applies automatically when Codex updates."
+    else
+        warn "Could not load the auto-update agent. The patch still works; re-run the installer after a Codex update."
+    fi
+}
+
+unregister_autoupdate() {
+    if [ -f "$LAUNCH_AGENT_PLIST" ]; then
+        launchctl unload "$LAUNCH_AGENT_PLIST" 2>/dev/null || true
+        rm -f "$LAUNCH_AGENT_PLIST"
+    fi
+    rm -rf "$PATCHER_DIR" 2>/dev/null || true
+}
+
+au_log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)  $1" >> "$AUTOUPDATE_LOG"; }
+
+auto_update() {
+    mkdir -p "$PATCHER_DIR"
+    au_log "auto-update check started"
+
+    if [ ! -d "$SOURCE_APP" ]; then au_log "no Codex.app at $SOURCE_APP; nothing to do"; exit 0; fi
+    if [ ! -d "$PATCHED_APP" ]; then au_log "no patched copy; skip (run --install first)"; exit 0; fi
+
+    local sv pv
+    sv=$(app_version "$SOURCE_APP")
+    pv=$(sed -nE 's/.*"sourceVersion": *"([^"]*)".*/\1/p' "$MARKER_FILE" 2>/dev/null | head -1)
+    if [ -n "$pv" ] && [ "$sv" = "$pv" ]; then au_log "already up to date ($sv)"; exit 0; fi
+
+    # Don't interrupt a running session; a later run picks it up.
+    if pgrep -f "Codex-RT-AI.app/Contents/MacOS" >/dev/null 2>&1; then
+        au_log "update available ($sv) but patched Codex is running; deferring"
+        exit 0
+    fi
+
+    au_log "updating patch from [$pv] to [$sv]"
+    # Re-patch silently, without re-touching the launchd agent we're running under.
+    if NO_LAUNCH=1 NO_AUTOUPDATE=1 install_patch >> "$AUTOUPDATE_LOG" 2>&1; then
+        au_log "re-patched successfully to $sv"
+    else
+        au_log "re-patch FAILED"
+        exit 1
     fi
 }
 
@@ -218,14 +327,15 @@ install_patch() {
         | while IFS= read -r line; do log "$line"; done
     success "Re-signed"
 
-    # Patch marker
-    cat > "$PATCHED_APP/Contents/Resources/rt-ai-codex-rtl-patch.json" <<EOF
+    # Patch marker (sourceVersion lets the auto-updater detect new Codex builds)
+    cat > "$MARKER_FILE" <<EOF
 {
   "name": "rt-ai-codex-rtl-patch",
   "publisher": "RT-AI",
   "site": "https://rt-ai.co.il",
   "platform": "macos",
   "sourceAppDir": "$SOURCE_APP",
+  "sourceVersion": "$(app_version "$SOURCE_APP")",
   "installedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
@@ -233,8 +343,16 @@ EOF
     rm -rf "$TMP_DIR" 2>/dev/null || true
     TMP_DIR=""
 
-    step "Launching Codex-RT-AI"
-    open "$PATCHED_APP"
+    if [ -z "${NO_AUTOUPDATE:-}" ]; then
+        register_autoupdate || true
+    fi
+
+    if [ -n "${NO_LAUNCH:-}" ]; then
+        log "Skipping launch (NO_LAUNCH set)."
+    else
+        step "Launching Codex-RT-AI"
+        open "$PATCHED_APP"
+    fi
 
     printf "\n${BOLD}${GREEN}=======================================================${NC}\n"
     printf "${BOLD}${GREEN}     PATCH INSTALLED${NC}\n"
@@ -256,6 +374,10 @@ uninstall_patch() {
     fi
 
     quit_patched_codex
+
+    step "Removing auto-update agent"
+    unregister_autoupdate
+    success "Auto-update disabled"
 
     step "Removing patched app"
     rm -rf "$PATCHED_APP"
@@ -297,6 +419,12 @@ show_status() {
     else
         log "Patched Codex-RT-AI.app: not installed"
     fi
+
+    if [ -f "$LAUNCH_AGENT_PLIST" ]; then
+        success "Auto-update: enabled (launchd agent $LAUNCH_AGENT_LABEL)"
+    else
+        log "Auto-update: not enabled. Re-run --install to enable it."
+    fi
     echo ""
 }
 
@@ -309,8 +437,9 @@ usage() {
     echo ""
     echo "Options:"
     echo "  --install     Install the RTL patch (creates ~/Applications/Codex-RT-AI.app)"
-    echo "  --uninstall   Remove the patched app"
+    echo "  --uninstall   Remove the patched app and the auto-update agent"
     echo "  --status      Show current patch status"
+    echo "  --auto-update Re-apply the patch if Codex was updated (used by the launchd agent)"
     echo "  --help        Show this help"
     echo ""
     echo "Env vars:"
@@ -320,9 +449,11 @@ usage() {
 }
 
 case "${1:---install}" in
-    --install)   install_patch ;;
-    --uninstall) uninstall_patch ;;
-    --status)    show_status ;;
-    --help|-h)   usage ;;
-    *)           err "Unknown option: $1"; usage; exit 1 ;;
+    --install)             install_patch ;;
+    --uninstall)           uninstall_patch ;;
+    --status)              show_status ;;
+    --auto-update)         auto_update ;;
+    --register-autoupdate) register_autoupdate ;;
+    --help|-h)             usage ;;
+    *)                     err "Unknown option: $1"; usage; exit 1 ;;
 esac
