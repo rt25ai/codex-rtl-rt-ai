@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REPO="${RT_AI_CODEX_REPO:-rt25ai/codex-rtl-rt-ai}"
-BRANCH="${RT_AI_CODEX_BRANCH:-v0.1.6}"
+BRANCH="${RT_AI_CODEX_BRANCH:-v0.1.7}"
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'

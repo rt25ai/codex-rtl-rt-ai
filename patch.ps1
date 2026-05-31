@@ -601,13 +601,16 @@ function Register-AutoUpdateTask {
     $psExe = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
     if (-not (Test-Path -LiteralPath $psExe)) { $psExe = "powershell.exe" }
 
-    $arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$patcherScript`" -AutoUpdate"
+    $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$patcherScript`" -AutoUpdate"
     $action = New-ScheduledTaskAction -Execute $psExe -Argument $arguments
 
     # Triggers: the AppX deployment event (near-immediate after a Store update),
-    # at every logon, and hourly as a safety net. The task no-ops fast when the
-    # version has not changed, so over-triggering is harmless. Built with the
-    # ScheduledTasks cmdlets (valid objects, no hand-written XML to mis-format).
+    # at every logon, and once daily as a safety net. The task no-ops fast when
+    # the version has not changed. It runs in a normal (visible) PowerShell
+    # window rather than a hidden one - a brief console flash is a fair trade for
+    # not resembling the hidden-window persistence that AV ClickFix heuristics
+    # flag. Built with the ScheduledTasks cmdlets (valid objects, no hand-written
+    # XML to mis-format).
     $triggers = New-Object System.Collections.Generic.List[object]
     try {
         $cls = Get-CimClass -Namespace "ROOT\Microsoft\Windows\TaskScheduler" -ClassName MSFT_TaskEventTrigger -ErrorAction Stop
@@ -620,11 +623,7 @@ function Register-AutoUpdateTask {
         Write-Info "AppX event trigger unavailable; using logon + hourly triggers."
     }
     $triggers.Add((New-ScheduledTaskTrigger -AtLogOn))
-    try {
-        $triggers.Add((New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Hours 1)))
-    } catch {
-        $triggers.Add((New-ScheduledTaskTrigger -Daily -At "12:00"))
-    }
+    $triggers.Add((New-ScheduledTaskTrigger -Daily -At "12:00"))
 
     # RunLevel Limited: registers and runs as the current user without elevation
     # or a UAC prompt. The app copy is read via Get-AppxPackage's user-readable
@@ -645,7 +644,7 @@ function Register-AutoUpdateTask {
             $pe = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
             if (-not (Test-Path -LiteralPath $pe)) { $pe = "powershell.exe" }
             try {
-                Start-Process $pe -ArgumentList @("-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File", "`"$patcherScript`"", "-RegisterTask", "-NoElevate") -Verb RunAs -Wait | Out-Null
+                Start-Process $pe -ArgumentList @("-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "`"$patcherScript`"", "-RegisterTask", "-NoElevate") -Verb RunAs -Wait | Out-Null
             } catch {
                 Write-Warn "Auto-update not enabled (elevation declined). Re-run the installer as administrator to enable it."
                 return
