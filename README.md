@@ -33,6 +33,14 @@ irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.8/install-onli
 > **דרישות:** [Node.js (LTS)](https://nodejs.org/) + Codex Desktop מ-Microsoft Store.
 > לא נדרשים admin / takeown / שינויי הרשאות.
 
+> **אם Windows מציג אזהרת אבטחה (`Trojan:Win32/ClickFix`):**
+> זו **התרעת שווא (false positive)** — לא וירוס. Windows Defender מסמן כך כל
+> פקודה מסוג `irm ... | iex` בגלל **צורת ההתקנה**, לא בגלל התוכן (הסיומת `!MTB`
+> פירושה ניחוש היוריסטי, לא חתימה של נוזקה ידועה). הסקריפט פתוח לקריאה כאן
+> ב-GitHub — הוא רק יוצר **עותק מקומי** של Codex עם תמיכת עברית, בלי לגעת
+> בהתקנה המקורית, ב-registry או ב-services. אם האזהרה קופצת: **Windows Security
+> → היסטוריית הגנה → בחרו בפריט → "אפשר"**, ואז הריצו שוב את הפקודה.
+
 ### macOS - experimental
 
 macOS support is included but has not yet been personally tested by the
