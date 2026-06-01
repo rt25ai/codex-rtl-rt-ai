@@ -34,10 +34,10 @@ irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.8/install-onli
 > לא נדרשים admin / takeown / שינויי הרשאות.
 
 > **אם Windows מציג אזהרת אבטחה (`Trojan:Win32/ClickFix`):**
-> זו **התרעת שווא (false positive)** — לא וירוס. Windows Defender מסמן כך כל
+> זו **התרעת שווא (false positive)** - לא וירוס. Windows Defender מסמן כך כל
 > פקודה מסוג `irm ... | iex` בגלל **צורת ההתקנה**, לא בגלל התוכן (הסיומת `!MTB`
 > פירושה ניחוש היוריסטי, לא חתימה של נוזקה ידועה). הסקריפט פתוח לקריאה כאן
-> ב-GitHub — הוא רק יוצר **עותק מקומי** של Codex עם תמיכת עברית, בלי לגעת
+> ב-GitHub - הוא רק יוצר **עותק מקומי** של Codex עם תמיכת עברית, בלי לגעת
 > בהתקנה המקורית, ב-registry או ב-services. אם האזהרה קופצת: **Windows Security
 > → היסטוריית הגנה → בחרו בפריט → "אפשר"**, ואז הריצו שוב את הפקודה.
 
@@ -60,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.8/insta
 
 > **דרישות:** [Node.js](https://nodejs.org/) (`brew install node`) +
 > Xcode CLI tools (`xcode-select --install`) + Codex Desktop מותקן ב-`/Applications`.
-> אם נתקלתם בבעיה — פתחו [issue](https://github.com/rt25ai/codex-rtl-rt-ai/issues) או PR.
+> אם נתקלתם בבעיה - פתחו [issue](https://github.com/rt25ai/codex-rtl-rt-ai/issues) או PR.
 
 ## Before / After
 
@@ -80,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.8/insta
 - ✅ טקסט מעורב (עברית + אנגלית באותה שורה) → first-strong detection.
 - ✅ בלוקי קוד (` ``` `, `<pre>`, Monaco, CodeMirror) → **תמיד LTR**.
 - ✅ Inline code (`` `כך` ``) → LTR גם בתוך פסקה ב-RTL.
-- ✅ סימני פיסוק "שמטיילים" — מיוצבים עם `unicode-bidi: plaintext`.
+- ✅ סימני פיסוק "שמטיילים" - מיוצבים עם `unicode-bidi: plaintext`.
 
 ## הסרה / סטטוס
 
@@ -101,7 +101,7 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.8/unins
 
 כש-Codex Desktop מתעדכן ב-Microsoft Store, ההעתק המתוקן שלך **לא מתעדכן
 אוטומטית**. כדי לקבל את הגרסה החדשה עם RTL, פשוט הריצו שוב את אותה שורה
-מההתקנה — הסקריפט יזהה את הגרסה החדשה, יעתיק אותה, ויפאצ'.
+מההתקנה - הסקריפט יזהה את הגרסה החדשה, יעתיק אותה, ויפאצ'.
 
 ---
 
@@ -118,7 +118,7 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.8/unins
 7. כותב marker (`resources\rt-ai-codex-rtl-patch.json`).
 8. יוצר קיצורי דרך `Codex.lnk` ב-Desktop וב-Start Menu.
 
-הכל ב-`%LOCALAPPDATA%` — תיקייה user-writable. אין שינוי ב-`WindowsApps`,
+הכל ב-`%LOCALAPPDATA%` - תיקייה user-writable. אין שינוי ב-`WindowsApps`,
 ב-registry, או ב-services.
 
 ## מבנה הפרויקט
@@ -181,7 +181,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
   ההעתק כבר אינו חתום ב-MSIX integrity, מה שאומר ש-Windows לא מתייחס אליו
   כאל אפליקציה חתומה.
 - **מבטל ASAR integrity fuse.** הפאצ' מכבה fuse של Electron בהעתק כדי שיוכל
-  לטעון את ה-asar המעודכן. השלכה: אם רוצים לחזור לחתימה מקורית — מסירים את
+  לטעון את ה-asar המעודכן. השלכה: אם רוצים לחזור לחתימה מקורית - מסירים את
   ההעתק (`uninstall.bat`) ומשתמשים שוב במקור.
 - **MSIX מעדכן את המקור, לא את ההעתק.** עדכון של Codex דרך Microsoft Store
   לא יעדכן את ההעתק המתוקן. צריך להריץ שוב את ההתקנה כדי לאמץ את הגרסה
@@ -190,13 +190,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-static.ps1
   עם המקור (שם האפליקציה ב-Electron זהה). זה אומר שכניסה, היסטוריית שיחות
   ופרטי משתמש אמורים להישמר.
 - **ללא ערבות לתפקוד עתידי.** OpenAI יכולים בכל עת לשנות את מבנה ה-bundles
-  הפנימי של Codex Desktop. אם זה קורה — הפאצ' יעצור עם שגיאה ברורה (במקום
+  הפנימי של Codex Desktop. אם זה קורה - הפאצ' יעצור עם שגיאה ברורה (במקום
   לפגוע בקובץ הלא נכון בשקט), והוא ידרוש עדכון.
 - **רישיון:** MIT. ראו [LICENSE](LICENSE). אין שום warranty (כולל לעניין
   merchantability ו-fitness for a particular purpose), והמחברים אינם
   אחראים לכל נזק ישיר, עקיף, מקרי, או תוצאתי שייגרם משימוש בכלי.
 
-הוגן? לפני שמשתמשים, ודאו שאתם מבינים מה הסקריפט עושה. הקוד פתוח —
+הוגן? לפני שמשתמשים, ודאו שאתם מבינים מה הסקריפט עושה. הקוד פתוח -
 [קראו אותו](patch.ps1).
 
 ---
