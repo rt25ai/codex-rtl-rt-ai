@@ -472,8 +472,27 @@ function Disable-AsarIntegrityFuse {
     # the build is not enforcing embedded asar integrity, so the repacked
     # app.asar loads without flipping any fuse. Warn and continue rather than
     # aborting the whole install.
-    & $NpxPath "--yes" "@electron/fuses" "write" "--app" $exe "EnableEmbeddedAsarIntegrityValidation=off" 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
+    #
+    # IMPORTANT: @electron/fuses writes that "sentinel" message to stderr. The
+    # script runs under $ErrorActionPreference = "Stop", and in Windows
+    # PowerShell 5.1 merging a native command's stderr into the pipeline (2>&1)
+    # promotes it to a terminating NativeCommandError - which aborts the whole
+    # install BEFORE we can downgrade it to a warning via $LASTEXITCODE. Pin a
+    # local Continue preference and discard every output stream (*> $null) so a
+    # missing fuse wire stays a non-fatal warning instead of crashing the run.
+    $fuseDisabled = $false
+    try {
+        $localEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        & $NpxPath "--yes" "@electron/fuses" "write" "--app" $exe "EnableEmbeddedAsarIntegrityValidation=off" *> $null
+        $fuseDisabled = ($LASTEXITCODE -eq 0)
+    } catch {
+        $fuseDisabled = $false
+    } finally {
+        $ErrorActionPreference = $localEAP
+    }
+
+    if ($fuseDisabled) {
         Write-Ok "ASAR integrity fuse disabled on the patched copy."
     } else {
         Write-Warn "Could not flip the ASAR integrity fuse (this Electron build exposes no fuse wire). Continuing - the build is not enforcing embedded asar integrity."
