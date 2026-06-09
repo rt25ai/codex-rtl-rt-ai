@@ -103,6 +103,23 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.9/unins
 אוטומטית**. כדי לקבל את הגרסה החדשה עם RTL, פשוט הריצו שוב את אותה שורה
 מההתקנה - הסקריפט יזהה את הגרסה החדשה, יעתיק אותה, ויפאצ'.
 
+## תוקן: חלון CMD שקופץ (למי שהתקין גרסה קודמת)
+
+אם התקנת **גרסה קודמת** והבחנת בחלון שחור (CMD/PowerShell) שקופץ כל כמה דקות -
+זה היה באג במשימת העדכון האוטומטי: היא הופעלה אחרי **כל** עדכון Microsoft Store
+ובחלון גלוי, במקום רק אחרי עדכון של Codex. **תוקן.**
+
+לא צריך להסיר ולהתקין מחדש - הדביקו את השורה הזו ב-PowerShell ואשרו את חלון
+ההרשאות (UAC) שיקפוץ פעם אחת:
+
+```powershell
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/fix-autoupdate-online.ps1 | iex
+```
+
+היא מתקנת **רק את המשימה המתוזמנת** (חלון מוסתר + הפעלה רק אחרי עדכון Codex אמיתי) -
+בלי להוריד, לפצ' מחדש, או לגעת בהתקנה. לחלופין, הרצה מחדש של [המתקין הרגיל](#התקנה---שורה-אחת)
+גם פותרת את זה.
+
 ---
 
 ## איך זה עובד מבפנים
@@ -227,6 +244,14 @@ curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/v0.1.9/insta
   is left untouched. Only a copy under the user profile is patched.
 - Shortcuts/launchers named "Codex" point to the patched copy.
 - Personal use, AS-IS, MIT license. Not affiliated with OpenAI.
+
+**Installed an earlier version and see a CMD window pop up every few minutes?**
+That was an auto-update task bug (it fired on every Microsoft Store update, in a
+visible window). Fixed - no need to reinstall, just run (one UAC prompt):
+
+```powershell
+irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/fix-autoupdate-online.ps1 | iex
+```
 
 ## Known limitations
 
