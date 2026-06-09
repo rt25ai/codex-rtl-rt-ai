@@ -620,22 +620,23 @@ function Register-AutoUpdateTask {
     $psExe = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
     if (-not (Test-Path -LiteralPath $psExe)) { $psExe = "powershell.exe" }
 
-    $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$patcherScript`" -AutoUpdate"
+    $arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$patcherScript`" -AutoUpdate"
     $action = New-ScheduledTaskAction -Execute $psExe -Argument $arguments
 
     # Triggers: the AppX deployment event (near-immediate after a Store update),
     # at every logon, and once daily as a safety net. The task no-ops fast when
-    # the version has not changed. It runs in a normal (visible) PowerShell
-    # window rather than a hidden one - a brief console flash is a fair trade for
-    # not resembling the hidden-window persistence that AV ClickFix heuristics
-    # flag. Built with the ScheduledTasks cmdlets (valid objects, no hand-written
-    # XML to mis-format).
+    # the version has not changed. It runs hidden (-WindowStyle Hidden) so no
+    # console window flashes. The event trigger is narrowed to EventID 400
+    # (deployment succeeded) for the "Codex" package only, so it fires after an
+    # actual Codex update - not after every Microsoft Store package update.
+    # Built with the ScheduledTasks cmdlets (valid objects, no hand-written XML
+    # to mis-format).
     $triggers = New-Object System.Collections.Generic.List[object]
     try {
         $cls = Get-CimClass -Namespace "ROOT\Microsoft\Windows\TaskScheduler" -ClassName MSFT_TaskEventTrigger -ErrorAction Stop
         $evt = New-CimInstance -CimClass $cls -ClientOnly
         $evt.Enabled = $true
-        $evt.Subscription = '<QueryList><Query Id="0" Path="Microsoft-Windows-AppXDeploymentServer/Operational"><Select Path="Microsoft-Windows-AppXDeploymentServer/Operational">*[System[(EventID=400 or EventID=401 or EventID=404)]]</Select></Query></QueryList>'
+        $evt.Subscription = '<QueryList><Query Id="0" Path="Microsoft-Windows-AppXDeploymentServer/Operational"><Select Path="Microsoft-Windows-AppXDeploymentServer/Operational">*[System[EventID=400] and EventData[Data[@Name="PackageDisplayName"]="Codex"]]</Select></Query></QueryList>'
         $evt.Delay = "PT1M"
         $triggers.Add($evt)
     } catch {
