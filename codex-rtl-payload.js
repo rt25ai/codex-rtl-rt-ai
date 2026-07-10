@@ -77,7 +77,7 @@
         if (dir === "rtl") return "rtl";
         if (!hasRTL(text)) return "ltr";
         dir = firstStrong(stripLeadingLTR(text));
-        return dir === "rtl" ? "rtl" : "rtl";
+        return dir === "rtl" ? "rtl" : "ltr";
     }
 
     function detectElDir(el) {
