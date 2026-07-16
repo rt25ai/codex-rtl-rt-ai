@@ -10,7 +10,8 @@
 # extract app.asar, inject JS, repack, disable integrity fuse, re-sign.
 #
 # How it works:
-#   1. Copies Codex.app to ~/Applications/Codex-RT-AI.app (original untouched).
+#   1. Copies Codex Desktop (Codex.app, or ChatGPT.app on 26.x) to
+#      ~/Applications/Codex-RT-AI.app (original untouched).
 #   2. Extracts the app.asar archive.
 #   3. Prepends codex-rtl-payload.js to the Codex webview bundles.
 #   4. Repacks the archive.
@@ -25,8 +26,33 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PAYLOAD_FILE="$SCRIPT_DIR/codex-rtl-payload.js"
 
+# Read an app bundle's identifier ("" if unavailable).
+bundle_id() {
+    /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
+        "$1/Contents/Info.plist" 2>/dev/null || echo ""
+}
+
+# Locate Codex Desktop.
+#
+# Codex Desktop 26.x ships as ChatGPT.app instead of Codex.app. The bundle
+# identifier stayed com.openai.codex, so match on that rather than the
+# filename: the consumer ChatGPT desktop app is a different product
+# (com.openai.chat) that can occupy /Applications/ChatGPT.app, and patching it
+# would be wrong.
+detect_source_app() {
+    local candidate
+    for candidate in /Applications/Codex.app /Applications/ChatGPT.app; do
+        if [ -d "$candidate" ] && [ "$(bundle_id "$candidate")" = "com.openai.codex" ]; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+    # Nothing found: keep the historical path so error messages stay familiar.
+    printf '%s' "/Applications/Codex.app"
+}
+
 # Default install / source paths. Override via env or flags.
-SOURCE_APP="${CODEX_SOURCE_APP:-/Applications/Codex.app}"
+SOURCE_APP="${CODEX_SOURCE_APP:-$(detect_source_app)}"
 PATCHED_APP="${CODEX_PATCHED_APP:-$HOME/Applications/Codex-RT-AI.app}"
 PATCHED_ASAR="$PATCHED_APP/Contents/Resources/app.asar"
 MARKER_FILE="$PATCHED_APP/Contents/Resources/rt-ai-codex-rtl-patch.json"
@@ -173,6 +199,17 @@ register_autoupdate() {
         <string>$PATCHER_DIR/patch.sh</string>
         <string>--auto-update</string>
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Carry the resolved source app so an explicit CODEX_SOURCE_APP
+             override survives auto-updates. -->
+        <key>CODEX_SOURCE_APP</key>
+        <string>$SOURCE_APP</string>
+        <!-- launchd agents get a minimal PATH, so a node installed via nvm or
+             Homebrew is invisible and the re-patch dies in check_dependencies. -->
+        <key>PATH</key>
+        <string>$(dirname "$(command -v node)"):/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
     <key>RunAtLoad</key>
     <true/>
     <key>StartInterval</key>
@@ -207,7 +244,7 @@ auto_update() {
     mkdir -p "$PATCHER_DIR"
     au_log "auto-update check started"
 
-    if [ ! -d "$SOURCE_APP" ]; then au_log "no Codex.app at $SOURCE_APP; nothing to do"; exit 0; fi
+    if [ ! -d "$SOURCE_APP" ]; then au_log "no Codex Desktop at $SOURCE_APP; nothing to do"; exit 0; fi
     if [ ! -d "$PATCHED_APP" ]; then au_log "no patched copy; skip (run --install first)"; exit 0; fi
 
     local sv pv
@@ -239,7 +276,7 @@ install_patch() {
     printf "${BOLD}${CYAN}     RT-AI Codex Desktop RTL Patcher (macOS)${NC}\n"
     printf "${BOLD}${CYAN}=======================================================${NC}\n\n"
 
-    [ ! -d "$SOURCE_APP" ] && die "Codex.app not found at $SOURCE_APP. Install Codex Desktop first, or set CODEX_SOURCE_APP."
+    [ ! -d "$SOURCE_APP" ] && die "Codex Desktop not found (looked for Codex.app and ChatGPT.app in /Applications). Install it first, or set CODEX_SOURCE_APP."
     [ ! -f "$PAYLOAD_FILE" ] && die "codex-rtl-payload.js not found at $PAYLOAD_FILE. Re-clone the repository."
 
     check_dependencies
@@ -316,10 +353,21 @@ install_patch() {
     success "Repacked"
 
     step "Disabling ASAR integrity fuse on the copy"
-    log "Required after modifying app.asar; the original .app is not touched."
-    fuses_cmd write --app "$PATCHED_APP" EnableEmbeddedAsarIntegrityValidation=off \
-        2>&1 | while IFS= read -r line; do log "$line"; done
-    success "Fuse disabled"
+    # @electron/fuses locates the fuse wire via
+    # Contents/Frameworks/Electron Framework.framework/Electron Framework.
+    # Codex 26.x renamed that framework to "Codex Framework.framework", so the
+    # call fails with ENOENT and set -e aborts the install. That build already
+    # ships EnableEmbeddedAsarIntegrityValidation=Disabled, so skip the step
+    # instead of shimming the path. If a future build restores the stock
+    # framework name, this runs again unchanged.
+    if [ -f "$PATCHED_APP/Contents/Frameworks/Electron Framework.framework/Electron Framework" ]; then
+        log "Required after modifying app.asar; the original .app is not touched."
+        fuses_cmd write --app "$PATCHED_APP" EnableEmbeddedAsarIntegrityValidation=off \
+            2>&1 | while IFS= read -r line; do log "$line"; done
+        success "Fuse disabled"
+    else
+        log "Stock Electron Framework not present; this build ships the ASAR integrity fuse off. Skipping."
+    fi
 
     step "Re-signing the copy with an ad-hoc signature"
     log "Original signature is invalidated by our changes; ad-hoc lets macOS run the copy."
@@ -383,7 +431,7 @@ uninstall_patch() {
     rm -rf "$PATCHED_APP"
     success "Removed $PATCHED_APP"
     echo ""
-    echo "  The original Codex.app at $SOURCE_APP was never modified."
+    echo "  The original app at $SOURCE_APP was never modified."
     echo ""
 }
 
@@ -398,9 +446,9 @@ show_status() {
         local version
         version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
             "$SOURCE_APP/Contents/Info.plist" 2>/dev/null || echo "unknown")
-        success "Original Codex.app: installed (v$version)"
+        success "Original Codex Desktop at $SOURCE_APP: installed (v$version)"
     else
-        warn "Original Codex.app: not found at $SOURCE_APP"
+        warn "Original Codex Desktop: not found at $SOURCE_APP"
     fi
 
     if [ -d "$PATCHED_APP" ]; then
@@ -443,7 +491,7 @@ usage() {
     echo "  --help        Show this help"
     echo ""
     echo "Env vars:"
-    echo "  CODEX_SOURCE_APP  Override source .app path (default: /Applications/Codex.app)"
+    echo "  CODEX_SOURCE_APP  Override source .app path (default: auto-detected Codex.app or ChatGPT.app)"
     echo "  CODEX_PATCHED_APP Override patched .app path"
     echo ""
 }
