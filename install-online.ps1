@@ -1,7 +1,8 @@
 <#
-RT-AI Codex RTL Patch - Online installer
+RT-AI ChatGPT RTL Patch - Online installer
+Targets the unified ChatGPT desktop app ("Powered by Codex & OWL").
 Run via:
-  irm https://raw.githubusercontent.com/<user>/codex-rtl-rt-ai/main/install-online.ps1 | iex
+  irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.ps1 | iex
 
 Downloads the latest release as a zip, extracts to a temp folder, and runs
 patch.ps1 -Install. No admin required.
@@ -13,7 +14,7 @@ param(
     # Pin to a release tag by default so a compromised main branch cannot
     # silently affect users running the published one-liner. Pass -Branch main
     # explicitly only if you intentionally want the bleeding edge.
-    [string] $Branch = "v0.2.0"
+    [string] $Branch = "v0.3.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,7 +25,7 @@ function Write-Step { param([string] $Message) Write-Host ""; Write-Host "==> $M
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host "  RT-AI Codex RTL Patch - Online Installer"
+Write-Host "  RT-AI ChatGPT RTL Patch - Online Installer"
 Write-Host "  https://rt-ai.co.il"
 Write-Host "============================================================"
 

@@ -1,9 +1,15 @@
 // ===========================================================================
-// RT-AI Codex RTL Patch - Smart RTL Detection & Alignment
+// RT-AI ChatGPT RTL Patch - Smart RTL Detection & Alignment
 //
-// Adds automatic right-to-left support to OpenAI Codex Desktop on Windows.
-// Detects Hebrew and Arabic text in the composer and streamed responses,
-// aligns RTL content naturally, and keeps code blocks left-to-right.
+// Adds automatic right-to-left support to the unified ChatGPT desktop app
+// ("Powered by Codex & OWL" - the merged ChatGPT Work + Codex app) on
+// Windows and macOS. Detects Hebrew and Arabic text in the composer and
+// streamed responses, aligns RTL content naturally, and keeps code blocks
+// left-to-right.
+//
+// The marker strings and window flags keep the historical CODEX names so
+// re-patching an install made by the older Codex-RT-AI patcher stays
+// idempotent.
 //
 // Part of the RT-AI tooling suite (https://rt-ai.co.il).
 // ===========================================================================
@@ -263,7 +269,7 @@
         });
 
         observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-        console.info("[RT-AI Codex RTL] patch active");
+        console.info("[RT-AI ChatGPT RTL] patch active");
     }
 
     if (document.readyState === "loading") {

@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM RT-AI Codex RTL Patch - One-click uninstaller for Windows
+REM RT-AI ChatGPT RTL Patch - One-click uninstaller for Windows
 REM ============================================================================
 
 setlocal
@@ -8,7 +8,7 @@ cd /d "%~dp0"
 
 echo.
 echo ============================================================
-echo   RT-AI Codex RTL Patch - Uninstaller
+echo   RT-AI ChatGPT RTL Patch - Uninstaller
 echo ============================================================
 echo.
 

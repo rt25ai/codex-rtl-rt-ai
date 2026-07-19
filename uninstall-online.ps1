@@ -1,5 +1,5 @@
 <#
-RT-AI Codex RTL Patch - Online uninstaller
+RT-AI ChatGPT RTL Patch - Online uninstaller
 Run via:
   irm https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/uninstall-online.ps1 | iex
 
@@ -9,7 +9,7 @@ Downloads patch.ps1 and runs it with -Uninstall. No admin required.
 [CmdletBinding()]
 param(
     [string] $Repo = "rt25ai/codex-rtl-rt-ai",
-    [string] $Branch = "v0.2.0"
+    [string] $Branch = "v0.3.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,7 +20,7 @@ function Write-Step { param([string] $Message) Write-Host ""; Write-Host "==> $M
 
 Write-Host ""
 Write-Host "============================================================"
-Write-Host "  RT-AI Codex RTL Patch - Online Uninstaller"
+Write-Host "  RT-AI ChatGPT RTL Patch - Online Uninstaller"
 Write-Host "  https://rt-ai.co.il"
 Write-Host "============================================================"
 

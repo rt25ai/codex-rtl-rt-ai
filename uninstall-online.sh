@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================================
-# RT-AI Codex RTL Patch - Online uninstaller for macOS
+# RT-AI ChatGPT RTL Patch - Online uninstaller for macOS
 #
 # Run via:
 #   curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/uninstall-online.sh | bash
@@ -8,7 +8,7 @@
 set -euo pipefail
 
 REPO="${RT_AI_CODEX_REPO:-rt25ai/codex-rtl-rt-ai}"
-BRANCH="${RT_AI_CODEX_BRANCH:-v0.2.0}"
+BRANCH="${RT_AI_CODEX_BRANCH:-v0.3.0}"
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -22,7 +22,7 @@ step()    { printf "\n${BOLD}${CYAN}==> %s${NC}\n" "$1"; }
 die()     { printf "  ${RED}[X]${NC} %s\n" "$1" >&2; exit 1; }
 
 printf "\n============================================================\n"
-printf "  RT-AI Codex RTL Patch - Online Uninstaller (macOS)\n"
+printf "  RT-AI ChatGPT RTL Patch - Online Uninstaller (macOS)\n"
 printf "  https://rt-ai.co.il\n"
 printf "============================================================\n"
 

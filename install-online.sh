@@ -1,6 +1,7 @@
 #!/bin/bash
 # ============================================================================
-# RT-AI Codex RTL Patch - Online installer for macOS
+# RT-AI ChatGPT RTL Patch - Online installer for macOS
+# Targets the unified ChatGPT desktop app ("Powered by Codex & OWL").
 #
 # Run via:
 #   curl -fsSL https://raw.githubusercontent.com/rt25ai/codex-rtl-rt-ai/main/install-online.sh | bash
@@ -13,7 +14,7 @@ set -euo pipefail
 REPO="${RT_AI_CODEX_REPO:-rt25ai/codex-rtl-rt-ai}"
 # Pin to a release tag by default. Override with RT_AI_CODEX_BRANCH=main only
 # if you intentionally want the bleeding edge.
-BRANCH="${RT_AI_CODEX_BRANCH:-v0.2.0}"
+BRANCH="${RT_AI_CODEX_BRANCH:-v0.3.0}"
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -27,7 +28,7 @@ step()    { printf "\n${BOLD}${CYAN}==> %s${NC}\n" "$1"; }
 die()     { printf "  ${RED}[X]${NC} %s\n" "$1" >&2; exit 1; }
 
 printf "\n============================================================\n"
-printf "  RT-AI Codex RTL Patch - Online Installer (macOS)\n"
+printf "  RT-AI ChatGPT RTL Patch - Online Installer (macOS)\n"
 printf "  https://rt-ai.co.il\n"
 printf "============================================================\n"
 

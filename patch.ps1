@@ -1,9 +1,12 @@
 <#
-RT-AI Codex Desktop RTL Patcher for Windows.
+RT-AI ChatGPT Desktop RTL Patcher for Windows.
 
-Creates a patched copy of the installed Codex Electron app, injects
-the RT-AI RTL payload into the webview bundle, and disables ASAR integrity
-validation on the copied executable.
+Targets the unified ChatGPT desktop app ("Powered by Codex & OWL", MSIX
+package OpenAI.Codex) that merged ChatGPT Work and Codex into one app.
+Creates a patched copy of the installed app, injects the RT-AI RTL payload
+into the webview bundles, and (best-effort) disables ASAR integrity
+validation on the copied executable. Also migrates installs made by the
+older Codex-RT-AI versions of this patcher.
 
 Part of the RT-AI tooling suite (https://rt-ai.co.il).
 #>
@@ -20,21 +23,26 @@ param(
     [switch] $RegisterTask,
     [switch] $NoElevate,
     [string] $SourceAppDir,
-    [string] $PatchedAppDir = (Join-Path $env:LOCALAPPDATA "Programs\Codex-RT-AI")
+    [string] $PatchedAppDir = (Join-Path $env:LOCALAPPDATA "Programs\ChatGPT-RT-AI")
 )
 
 $ErrorActionPreference = "Stop"
 
 $Script:RepoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:PayloadPath = Join-Path $Script:RepoRoot "codex-rtl-payload.js"
-$Script:ShortcutName = "Codex.lnk"
-$Script:LegacyShortcutNames = @("Codex RT-AI.lnk", "Codex RTL.lnk")
-$Script:LegacyPatchedDirs = @("Codex-RTL")
+$Script:ShortcutName = "ChatGPT.lnk"
+$Script:LegacyShortcutNames = @("Codex.lnk", "Codex RT-AI.lnk", "Codex RTL.lnk")
+$Script:LegacyPatchedDirs = @("Codex-RTL", "Codex-RT-AI")
+# The unified app ships ChatGPT.exe as the MSIX entry point but keeps
+# Codex.exe alongside it; older builds only have Codex.exe.
+$Script:AppExeNames = @("ChatGPT.exe", "Codex.exe")
 
 # Auto-update: a scheduled task re-applies the patch whenever the Microsoft
-# Store updates Codex, so the user never has to re-run the installer.
-$Script:TaskName = "Codex RT-AI RTL Auto-Update"
-$Script:PatcherDir = Join-Path $env:LOCALAPPDATA "Programs\Codex-RT-AI-patcher"
+# Store updates the app, so the user never has to re-run the installer.
+$Script:TaskName = "ChatGPT RT-AI RTL Auto-Update"
+$Script:LegacyTaskNames = @("Codex RT-AI RTL Auto-Update")
+$Script:PatcherDir = Join-Path $env:LOCALAPPDATA "Programs\ChatGPT-RT-AI-patcher"
+$Script:LegacyPatcherDirs = @(Join-Path $env:LOCALAPPDATA "Programs\Codex-RT-AI-patcher")
 $Script:AutoUpdateLog = Join-Path $Script:PatcherDir "auto-update.log"
 
 function Write-Step {
@@ -157,14 +165,27 @@ function Invoke-Checked {
     }
 }
 
-function Test-CodexAppDir {
+function Get-AppExePath {
     param([string] $AppDir)
 
-    return (Test-Path -LiteralPath (Join-Path $AppDir "Codex.exe")) -and
-        (Test-Path -LiteralPath (Join-Path $AppDir "resources\app.asar"))
+    foreach ($name in $Script:AppExeNames) {
+        $exe = Join-Path $AppDir $name
+        if (Test-Path -LiteralPath $exe) {
+            return $exe
+        }
+    }
+
+    return $null
 }
 
-function Get-CodexPackageVersion {
+function Test-ChatGptAppDir {
+    param([string] $AppDir)
+
+    return (Test-Path -LiteralPath (Join-Path $AppDir "resources\app.asar")) -and
+        ($null -ne (Get-AppExePath $AppDir))
+}
+
+function Get-ChatGptPackageVersion {
     param([string] $AppDir)
 
     $packageDir = Split-Path -Parent $AppDir
@@ -183,9 +204,14 @@ function Get-CodexPackageVersion {
 function Test-IsPatchedCopy {
     param([string] $AppDir)
 
+    # NOTE: each Join-Path must be parenthesized. A bare comma between two
+    # Join-Path calls is parsed as ONE call whose -ChildPath is an array,
+    # which silently yields a single garbage path - and then this function
+    # never matches anything.
     $markers = @(
-        Join-Path $AppDir "resources\rt-ai-codex-rtl-patch.json",
-        Join-Path $AppDir "resources\codex-rtl-patch.json"
+        (Join-Path $AppDir "resources\rt-ai-chatgpt-rtl-patch.json"),
+        (Join-Path $AppDir "resources\rt-ai-codex-rtl-patch.json"),
+        (Join-Path $AppDir "resources\codex-rtl-patch.json")
     )
     foreach ($m in $markers) {
         if (Test-Path -LiteralPath $m) { return $true }
@@ -193,28 +219,29 @@ function Test-IsPatchedCopy {
     return $false
 }
 
-function Find-CodexAppDir {
+function Find-ChatGptAppDir {
     param([string] $ExplicitSourceAppDir)
 
     if ($ExplicitSourceAppDir) {
         $explicit = Resolve-FullPath $ExplicitSourceAppDir
-        if (-not (Test-CodexAppDir $explicit)) {
-            throw "SourceAppDir is not a Codex app directory: $explicit"
+        if (-not (Test-ChatGptAppDir $explicit)) {
+            throw "SourceAppDir is not a ChatGPT/Codex app directory: $explicit"
         }
         return $explicit
     }
 
     # Primary: use Get-AppxPackage which works without admin and finds the MSIX install reliably.
+    # The unified ChatGPT app kept the OpenAI.Codex package identity.
     try {
         $package = Get-AppxPackage -Name "OpenAI.Codex" -ErrorAction Stop |
             Sort-Object Version -Descending |
             Select-Object -First 1
         if ($package -and $package.InstallLocation) {
             $appDir = Join-Path $package.InstallLocation "app"
-            if (Test-CodexAppDir $appDir) {
+            if (Test-ChatGptAppDir $appDir) {
                 return (Resolve-FullPath $appDir)
             }
-            if (Test-CodexAppDir $package.InstallLocation) {
+            if (Test-ChatGptAppDir $package.InstallLocation) {
                 return (Resolve-FullPath $package.InstallLocation)
             }
         }
@@ -231,7 +258,7 @@ function Find-CodexAppDir {
             Get-ChildItem -LiteralPath $windowsAppsDir -Directory -Filter "OpenAI.Codex_*" -ErrorAction Stop |
                 ForEach-Object {
                     $appDir = Join-Path $_.FullName "app"
-                    if (Test-CodexAppDir $appDir) {
+                    if (Test-ChatGptAppDir $appDir) {
                         $candidates.Add((Resolve-FullPath $appDir))
                     }
                 }
@@ -243,15 +270,15 @@ function Find-CodexAppDir {
     # Last resort: LocalAppData\Programs, but skip ANY directory we recognize as a patched copy.
     $localPrograms = Join-Path $env:LOCALAPPDATA "Programs"
     if (Test-Path -LiteralPath $localPrograms) {
-        $excludedNames = @($Script:LegacyPatchedDirs + "Codex-RT-AI")
+        $excludedNames = @($Script:LegacyPatchedDirs + @("ChatGPT-RT-AI", "ChatGPT-Classic-RT-AI"))
         Get-ChildItem -LiteralPath $localPrograms -Directory -ErrorAction SilentlyContinue |
             Where-Object {
-                $_.Name -match "Codex|OpenAI" -and
+                $_.Name -match "Codex|OpenAI|ChatGPT" -and
                 $excludedNames -notcontains $_.Name -and
                 -not (Test-IsPatchedCopy $_.FullName)
             } |
             ForEach-Object {
-                if (Test-CodexAppDir $_.FullName) {
+                if (Test-ChatGptAppDir $_.FullName) {
                     $candidates.Add((Resolve-FullPath $_.FullName))
                 }
             }
@@ -260,18 +287,18 @@ function Find-CodexAppDir {
     $unique = $candidates | Select-Object -Unique
     $best = $unique |
         Sort-Object `
-            @{ Expression = { Get-CodexPackageVersion $_ }; Descending = $true },
+            @{ Expression = { Get-ChatGptPackageVersion $_ }; Descending = $true },
             @{ Expression = { (Get-Item -LiteralPath $_).LastWriteTimeUtc }; Descending = $true } |
         Select-Object -First 1
 
     if (-not $best) {
-        throw "Could not find a Codex Desktop installation. Install Codex from Microsoft Store first, or pass -SourceAppDir explicitly."
+        throw "Could not find a ChatGPT (Codex) Desktop installation. Install ChatGPT from the Microsoft Store first, or pass -SourceAppDir explicitly."
     }
 
     return $best
 }
 
-function Stop-PatchedCodex {
+function Stop-PatchedApp {
     param([string] $AppDir)
 
     if (-not (Test-Path -LiteralPath $AppDir)) {
@@ -291,7 +318,7 @@ function Stop-PatchedCodex {
     }
 
     if ($stopped -gt 0) {
-        Write-Info "Stopped $stopped patched Codex process(es); waiting for handles to release..."
+        Write-Info "Stopped $stopped patched app process(es); waiting for handles to release..."
         Start-Sleep -Milliseconds 1500
     }
 }
@@ -329,14 +356,17 @@ function New-PatchedShortcutFile {
     $shortcut.TargetPath = $TargetExe
     $shortcut.WorkingDirectory = $WorkingDir
     $shortcut.IconLocation = "$TargetExe,0"
-    $shortcut.Description = "Codex Desktop with RTL patch (Hebrew/Arabic alignment) - by RT-AI"
+    $shortcut.Description = "ChatGPT Desktop (Codex) with RTL patch (Hebrew/Arabic alignment) - by RT-AI"
     $shortcut.Save()
 }
 
 function New-PatchedShortcut {
     param([string] $AppDir)
 
-    $exe = Join-Path $AppDir "Codex.exe"
+    $exe = Get-AppExePath $AppDir
+    if (-not $exe) {
+        throw "No app executable found in $AppDir (expected one of: $($Script:AppExeNames -join ', '))."
+    }
 
     $desktopPath = Get-DesktopShortcutPath
     New-PatchedShortcutFile -ShortcutPath $desktopPath -TargetExe $exe -WorkingDir $AppDir
@@ -368,11 +398,17 @@ function Remove-LegacyShortcuts {
 
 function Remove-LegacyPatchedDirs {
     $programsDir = Join-Path $env:LOCALAPPDATA "Programs"
+    $currentTarget = (Resolve-FullPath $PatchedAppDir).TrimEnd("\")
     foreach ($name in $Script:LegacyPatchedDirs) {
         $legacyDir = Join-Path $programsDir $name
+        if ((Resolve-FullPath $legacyDir).TrimEnd("\") -ieq $currentTarget) {
+            # The user explicitly pointed -PatchedAppDir at a legacy location;
+            # do not delete the copy we are about to (re)create.
+            continue
+        }
         if (Test-Path -LiteralPath $legacyDir) {
             Write-Info "Removing legacy patched copy: $legacyDir"
-            Stop-PatchedCodex $legacyDir
+            Stop-PatchedApp $legacyDir
             try {
                 Remove-DirectorySafe $legacyDir
                 Write-Ok "Removed: $legacyDir"
@@ -380,6 +416,19 @@ function Remove-LegacyPatchedDirs {
                 Write-Warn "Could not remove $legacyDir : $($_.Exception.Message)"
             }
         }
+    }
+
+    # Also sweep rename-fallback leftovers (".<name>.stale-<stamp>") from
+    # earlier locked-file installs; Windows does not actually clean these.
+    $staleLeaves = @($Script:LegacyPatchedDirs + @(Split-Path -Leaf $currentTarget))
+    foreach ($leaf in ($staleLeaves | Select-Object -Unique)) {
+        Get-ChildItem -LiteralPath $programsDir -Directory -Filter ".$leaf.stale-*" -Force -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                if (-not (Test-Path -LiteralPath $_.FullName)) {
+                    Write-Info "Removed stale leftover: $($_.FullName)"
+                }
+            }
     }
 }
 
@@ -394,7 +443,7 @@ function Patch-Asar {
     }
 
     $asarPath = Join-Path $AppDir "resources\app.asar"
-    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("codex-rt-ai-" + [guid]::NewGuid().ToString("N"))
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("chatgpt-rt-ai-" + [guid]::NewGuid().ToString("N"))
     $extractDir = Join-Path $tempRoot "app"
     $newAsar = Join-Path $tempRoot "app.asar"
 
@@ -418,7 +467,7 @@ function Patch-Asar {
 
         $uniqueTargets = $targets | Sort-Object FullName -Unique
         if (-not $uniqueTargets -or $uniqueTargets.Count -eq 0) {
-            throw "No Codex webview JS bundles found. The app structure may have changed."
+            throw "No webview JS bundles found. The app structure may have changed."
         }
 
         $payload = Get-Content -LiteralPath $Script:PayloadPath -Raw
@@ -463,14 +512,19 @@ function Disable-AsarIntegrityFuse {
         [string] $NpxPath
     )
 
-    $exe = Join-Path $AppDir "Codex.exe"
+    $exe = Get-AppExePath $AppDir
+    if (-not $exe) {
+        Write-Warn "No app executable found for fuse handling; skipping."
+        return
+    }
     Write-Step "Disabling ASAR integrity validation on copied exe"
 
-    # Best-effort: newer Codex/Electron builds either ship without the embedded
-    # ASAR-integrity fuse or expose a fuse wire @electron/fuses cannot locate
-    # ("Could not find sentinel in the provided Electron binary"). In that case
-    # the build is not enforcing embedded asar integrity, so the repacked
-    # app.asar loads without flipping any fuse. Warn and continue rather than
+    # Best-effort: the unified ChatGPT app is built on the OWL shell (a
+    # Chromium-based runtime) whose launcher executables do not embed the
+    # Electron fuse sentinel at all, so @electron/fuses reports "Could not
+    # find sentinel in the provided Electron binary". In that case the build
+    # is not enforcing embedded asar integrity via the fuse, so the repacked
+    # app.asar loads without flipping anything. Warn and continue rather than
     # aborting the whole install.
     #
     # IMPORTANT: @electron/fuses writes that "sentinel" message to stderr. The
@@ -495,7 +549,7 @@ function Disable-AsarIntegrityFuse {
     if ($fuseDisabled) {
         Write-Ok "ASAR integrity fuse disabled on the patched copy."
     } else {
-        Write-Warn "Could not flip the ASAR integrity fuse (this Electron build exposes no fuse wire). Continuing - the build is not enforcing embedded asar integrity."
+        Write-Warn "Could not flip the ASAR integrity fuse (OWL builds expose no fuse wire). Continuing - the build is not enforcing embedded asar integrity."
     }
 }
 
@@ -506,27 +560,28 @@ function Write-PatchMarker {
     )
 
     $marker = [ordered]@{
-        name = "rt-ai-codex-rtl-patch"
+        name = "rt-ai-chatgpt-rtl-patch"
         publisher = "RT-AI"
         site = "https://rt-ai.co.il"
         sourceAppDir = $SourceDir
+        sourceVersion = (Get-ChatGptPackageVersion $SourceDir).ToString()
         installedAt = (Get-Date).ToString("o")
     }
-    $markerPath = Join-Path $AppDir "resources\rt-ai-codex-rtl-patch.json"
+    $markerPath = Join-Path $AppDir "resources\rt-ai-chatgpt-rtl-patch.json"
     $marker | ConvertTo-Json | Set-Content -LiteralPath $markerPath -Encoding UTF8
 }
 
-function Copy-CodexApp {
+function Copy-ChatGptApp {
     param(
         [string] $Source,
         [string] $Destination
     )
 
-    # The Codex app tree contains deeply nested node_modules (e.g. the
-    # serialport native bindings under @worklouder/device-kit-oai) whose
-    # paths exceed the Windows MAX_PATH (260 char) limit. Copy-Item cannot
-    # handle those and fails with "Could not find a part of the path".
-    # robocopy reads/writes long paths natively, so use it for the bulk copy.
+    # The app tree contains deeply nested node_modules (e.g. the serialport
+    # native bindings under @worklouder/device-kit-oai) whose paths exceed
+    # the Windows MAX_PATH (260 char) limit. Copy-Item cannot handle those
+    # and fails with "Could not find a part of the path". robocopy
+    # reads/writes long paths natively, so use it for the bulk copy.
     $robocopy = Get-ToolPath @("robocopy.exe")
     if (-not $robocopy) {
         throw "robocopy.exe not found (expected on all supported Windows versions)."
@@ -562,13 +617,20 @@ function Copy-CodexApp {
 function Get-PatchedSourceDir {
     param([string] $AppDir)
 
-    $markerPath = Join-Path $AppDir "resources\rt-ai-codex-rtl-patch.json"
-    if (-not (Test-Path -LiteralPath $markerPath)) { return $null }
-    try {
-        return ((Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json).sourceAppDir)
-    } catch {
-        return $null
+    # Parenthesized on purpose - see the note in Test-IsPatchedCopy.
+    $markerPaths = @(
+        (Join-Path $AppDir "resources\rt-ai-chatgpt-rtl-patch.json"),
+        (Join-Path $AppDir "resources\rt-ai-codex-rtl-patch.json")
+    )
+    foreach ($markerPath in $markerPaths) {
+        if (-not (Test-Path -LiteralPath $markerPath)) { continue }
+        try {
+            return ((Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json).sourceAppDir)
+        } catch {
+            continue
+        }
     }
+    return $null
 }
 
 function Write-AutoUpdateLog {
@@ -608,6 +670,25 @@ function Deploy-Patcher {
     return $targetScript
 }
 
+function Unregister-LegacyAutoUpdate {
+    # Remove the task + deployed patcher left behind by the Codex-RT-AI era
+    # of this patcher so two tasks never race over the same install.
+    if (Get-Command Unregister-ScheduledTask -ErrorAction SilentlyContinue) {
+        foreach ($name in $Script:LegacyTaskNames) {
+            if (Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue) {
+                Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+                Write-Info "Removed legacy auto-update task: $name"
+            }
+        }
+    }
+    foreach ($dir in $Script:LegacyPatcherDirs) {
+        if (Test-Path -LiteralPath $dir) {
+            Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Info "Removed legacy patcher dir: $dir"
+        }
+    }
+}
+
 function Register-AutoUpdateTask {
     Write-Step "Registering auto-update task"
 
@@ -615,6 +696,8 @@ function Register-AutoUpdateTask {
         Write-Warn "ScheduledTasks module not available; skipping auto-update registration."
         return
     }
+
+    Unregister-LegacyAutoUpdate
 
     $patcherScript = Deploy-Patcher
     $psExe = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -627,8 +710,9 @@ function Register-AutoUpdateTask {
     # at every logon, and once daily as a safety net. The task no-ops fast when
     # the version has not changed. It runs hidden (-WindowStyle Hidden) so no
     # console window flashes. The event trigger is narrowed to EventID 400
-    # (deployment succeeded) for the "Codex" package only, so it fires after an
-    # actual Codex update - not after every Microsoft Store package update.
+    # (deployment succeeded) for the unified app only - it is displayed as
+    # "ChatGPT" since the Work+Codex merge and was "Codex" before, so match
+    # both - not after every Microsoft Store package update.
     # Built with the ScheduledTasks cmdlets (valid objects, no hand-written XML
     # to mis-format).
     $triggers = New-Object System.Collections.Generic.List[object]
@@ -636,11 +720,11 @@ function Register-AutoUpdateTask {
         $cls = Get-CimClass -Namespace "ROOT\Microsoft\Windows\TaskScheduler" -ClassName MSFT_TaskEventTrigger -ErrorAction Stop
         $evt = New-CimInstance -CimClass $cls -ClientOnly
         $evt.Enabled = $true
-        $evt.Subscription = '<QueryList><Query Id="0" Path="Microsoft-Windows-AppXDeploymentServer/Operational"><Select Path="Microsoft-Windows-AppXDeploymentServer/Operational">*[System[EventID=400] and EventData[Data[@Name="PackageDisplayName"]="Codex"]]</Select></Query></QueryList>'
+        $evt.Subscription = '<QueryList><Query Id="0" Path="Microsoft-Windows-AppXDeploymentServer/Operational"><Select Path="Microsoft-Windows-AppXDeploymentServer/Operational">*[System[EventID=400] and EventData[Data[@Name="PackageDisplayName"]="ChatGPT" or Data[@Name="PackageDisplayName"]="Codex"]]</Select></Query></QueryList>'
         $evt.Delay = "PT1M"
         $triggers.Add($evt)
     } catch {
-        Write-Info "AppX event trigger unavailable; using logon + hourly triggers."
+        Write-Info "AppX event trigger unavailable; using logon + daily triggers."
     }
     $triggers.Add((New-ScheduledTaskTrigger -AtLogOn))
     $triggers.Add((New-ScheduledTaskTrigger -Daily -At "12:00"))
@@ -652,8 +736,8 @@ function Register-AutoUpdateTask {
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
 
     try {
-        Register-ScheduledTask -TaskName $Script:TaskName -Action $action -Trigger $triggers.ToArray() -Principal $principal -Settings $settings -Description "Re-applies the RT-AI Codex RTL patch after Microsoft Store updates Codex (https://rt-ai.co.il)." -Force | Out-Null
-        Write-Ok "Auto-update enabled. The patch will re-apply automatically when Codex updates."
+        Register-ScheduledTask -TaskName $Script:TaskName -Action $action -Trigger $triggers.ToArray() -Principal $principal -Settings $settings -Description "Re-applies the RT-AI ChatGPT RTL patch after Microsoft Store updates the app (https://rt-ai.co.il)." -Force | Out-Null
+        Write-Ok "Auto-update enabled. The patch will re-apply automatically when ChatGPT updates."
     } catch {
         # Creating a scheduled task needs admin once. If we're not elevated,
         # relaunch just this registration step elevated (single UAC prompt) so
@@ -675,7 +759,7 @@ function Register-AutoUpdateTask {
                 Write-Warn "Auto-update not enabled (elevation declined). Re-run the installer as administrator to enable it."
             }
         } else {
-            Write-Warn "Could not register the auto-update task ($($_.Exception.Message)). The patch still works; re-run the installer after a Codex update."
+            Write-Warn "Could not register the auto-update task ($($_.Exception.Message)). The patch still works; re-run the installer after a ChatGPT update."
         }
     }
 }
@@ -687,20 +771,21 @@ function Unregister-AutoUpdateTask {
     if (Test-Path -LiteralPath $Script:PatcherDir) {
         Remove-Item -LiteralPath $Script:PatcherDir -Recurse -Force -ErrorAction SilentlyContinue
     }
+    Unregister-LegacyAutoUpdate
 }
 
 function Invoke-AutoUpdate {
     Write-AutoUpdateLog "Auto-update check started."
 
     try {
-        $source = Find-CodexAppDir $SourceAppDir
+        $source = Find-ChatGptAppDir $SourceAppDir
     } catch {
-        Write-AutoUpdateLog "No Store Codex app found; nothing to do. ($($_.Exception.Message))"
+        Write-AutoUpdateLog "No Store ChatGPT app found; nothing to do. ($($_.Exception.Message))"
         return
     }
 
     $destination = Resolve-FullPath $PatchedAppDir
-    if (-not (Test-Path -LiteralPath (Join-Path $destination "Codex.exe"))) {
+    if (-not (Test-Path -LiteralPath $destination) -or -not (Get-AppExePath $destination)) {
         Write-AutoUpdateLog "No patched copy at $destination; skipping (run -Install first)."
         return
     }
@@ -711,22 +796,26 @@ function Invoke-AutoUpdate {
         return
     }
 
-    # A new Codex version is available. Do not interrupt a running session -
-    # re-patch only when the patched Codex is not running; a later trigger
-    # (logon / hourly / next update event) picks it up otherwise.
-    $running = @(Get-Process -Name "Codex" -ErrorAction SilentlyContinue | Where-Object {
+    # A new app version is available. Do not interrupt a running session -
+    # re-patch only when the patched app is not running; a later trigger
+    # (logon / daily / next update event) picks it up otherwise.
+    $running = @(Get-Process -Name @("ChatGPT", "Codex") -ErrorAction SilentlyContinue | Where-Object {
         $p = $null; try { $p = $_.Path } catch { $p = $null }
         $p -and $p.StartsWith($destination, [System.StringComparison]::OrdinalIgnoreCase)
     })
     if ($running.Count -gt 0) {
-        Write-AutoUpdateLog "Update available ($source) but patched Codex is running; deferring."
+        Write-AutoUpdateLog "Update available ($source) but the patched app is running; deferring."
         return
     }
 
     Write-AutoUpdateLog "Updating patch from [$patchedSource] to [$source]."
     try {
         # Re-patch silently (no window, no launch) from the scheduled task.
+        # Also skip task re-registration: the task already exists, and trying
+        # to re-register from a background session could trigger a stray UAC
+        # elevation prompt.
         $script:NoLaunch = $true
+        $script:NoAutoUpdate = $true
         Install-Patch
         Write-AutoUpdateLog "Re-patched successfully to $source."
     } catch {
@@ -741,19 +830,24 @@ function Install-Patch {
         throw "npx.cmd not found. Install Node.js from https://nodejs.org/ and reopen PowerShell."
     }
 
-    $source = Find-CodexAppDir $SourceAppDir
+    $source = Find-ChatGptAppDir $SourceAppDir
     $destination = Resolve-FullPath $PatchedAppDir
 
-    Write-Step "Preparing Codex RT-AI copy"
+    Write-Step "Preparing ChatGPT RT-AI copy"
     Write-Info "Source: $source"
     Write-Info "Target: $destination"
 
-    Stop-PatchedCodex $destination
+    # Retire the Codex-RT-AI era task/patcher FIRST and unconditionally (even
+    # with -NoAutoUpdate), so the old scheduled task can never fire mid-install
+    # or resurrect the legacy copy after we delete it.
+    Unregister-LegacyAutoUpdate
+
+    Stop-PatchedApp $destination
     Remove-DirectorySafe $destination
     New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
 
-    Write-Step "Copying Codex app"
-    Copy-CodexApp $source $destination
+    Write-Step "Copying ChatGPT app"
+    Copy-ChatGptApp $source $destination
     Write-Ok "Copied app to $destination"
 
     Patch-Asar $destination $npx
@@ -767,41 +861,41 @@ function Install-Patch {
         try {
             Register-AutoUpdateTask
         } catch {
-            Write-Warn "Auto-update setup failed ($($_.Exception.Message)). The patch still works; re-run the installer after a Codex update."
+            Write-Warn "Auto-update setup failed ($($_.Exception.Message)). The patch still works; re-run the installer after a ChatGPT update."
         }
     }
 
     if (-not $NoLaunch) {
-        Start-PatchedCodex $destination
+        Start-PatchedApp $destination
     } else {
         Write-Info "Skipping launch because -NoLaunch was specified."
     }
 
     Write-Host ""
-    Write-Ok "RT-AI Codex RTL patch installed."
+    Write-Ok "RT-AI ChatGPT RTL patch installed."
 }
 
 function Uninstall-Patch {
     $destination = Resolve-FullPath $PatchedAppDir
-    Stop-PatchedCodex $destination
+    Stop-PatchedApp $destination
     Unregister-AutoUpdateTask
     Remove-DirectorySafe $destination
     Remove-PatchedShortcut
     Remove-LegacyPatchedDirs
-    Write-Ok "RT-AI Codex RTL patch removed."
+    Write-Ok "RT-AI ChatGPT RTL patch removed."
 }
 
-function Start-PatchedCodex {
+function Start-PatchedApp {
     param([string] $AppDir)
 
-    $exe = Join-Path $AppDir "Codex.exe"
-    if (-not (Test-Path -LiteralPath $exe)) {
-        throw "Patched Codex.exe not found at $exe. Run .\patch.ps1 -Install first."
+    $exe = Get-AppExePath $AppDir
+    if (-not $exe) {
+        throw "Patched app executable not found in $AppDir. Run .\patch.ps1 -Install first."
     }
 
-    Write-Step "Launching Codex RT-AI"
+    Write-Step "Launching ChatGPT RT-AI"
     Start-Process -FilePath $exe -WorkingDirectory $AppDir
-    Write-Ok "Launched patched Codex."
+    Write-Ok "Launched patched ChatGPT."
 }
 
 function Show-Status {
@@ -809,30 +903,41 @@ function Show-Status {
     $npx = Get-ToolPath @("npx.cmd")
 
     Write-Host ""
-    Write-Host "RT-AI Codex RTL Patch - Status" -ForegroundColor Cyan
+    Write-Host "RT-AI ChatGPT RTL Patch - Status" -ForegroundColor Cyan
     Write-Host ""
 
     try {
-        $source = Find-CodexAppDir $SourceAppDir
-        Write-Ok "Source Codex app: $source"
-        Write-Info "Source package version: $(Get-CodexPackageVersion $source)"
+        $source = Find-ChatGptAppDir $SourceAppDir
+        Write-Ok "Source ChatGPT app: $source"
+        Write-Info "Source package version: $(Get-ChatGptPackageVersion $source)"
     } catch {
         Write-Warn $_.Exception.Message
     }
 
     if (Test-Path -LiteralPath $destination) {
         Write-Ok "Patched copy: $destination"
-        $marker = Join-Path $destination "resources\rt-ai-codex-rtl-patch.json"
-        if (Test-Path -LiteralPath $marker) {
+        $markerFound = $false
+        foreach ($name in @("rt-ai-chatgpt-rtl-patch.json", "rt-ai-codex-rtl-patch.json")) {
+            if (Test-Path -LiteralPath (Join-Path $destination "resources\$name")) { $markerFound = $true; break }
+        }
+        if ($markerFound) {
             Write-Ok "Patch marker found."
         } else {
             Write-Warn "Patch marker missing; this directory may not be managed by this patcher."
         }
 
-        $exe = Join-Path $destination "Codex.exe"
-        if ($npx -and (Test-Path -LiteralPath $exe)) {
-            Write-Info "Electron fuse status:"
-            & $npx --yes "@electron/fuses" read --app $exe
+        $exe = Get-AppExePath $destination
+        if ($npx -and $exe) {
+            Write-Info "Electron fuse status (OWL builds expose no fuse wire; an error here is expected and harmless):"
+            try {
+                $localEAP = $ErrorActionPreference
+                $ErrorActionPreference = "Continue"
+                & $npx --yes "@electron/fuses" read --app $exe 2> $null
+            } catch {
+                Write-Info "No fuse sentinel in this build."
+            } finally {
+                $ErrorActionPreference = $localEAP
+            }
         }
     } else {
         Write-Info "Patched copy is not installed at $destination"
@@ -889,5 +994,5 @@ if ($RegisterTask) {
 } elseif ($Status) {
     Show-Status
 } elseif ($Launch) {
-    Start-PatchedCodex (Resolve-FullPath $PatchedAppDir)
+    Start-PatchedApp (Resolve-FullPath $PatchedAppDir)
 }
